@@ -4,7 +4,7 @@
 
 let usuarios = {
     admin: {
-        senha: 'admin123',
+        senha: 'admin123#',
         nivel: 'admin',
         primeiroAcesso: true,
         ultimoAcesso: null
@@ -97,13 +97,13 @@ function fazerLogin() {
     
     // Verificar se usuário existe
     if (!usuarios[username]) {
-        mostrarErro('Usuário não encontrado!');
+        mostrarErro('Usuário ou senha inválidos!');
         return;
     }
     
     // Verificar senha
     if (usuarios[username].senha !== password) {
-        mostrarErro('Senha incorreta!');
+        mostrarErro('Usuário ou senha inválidos!');
         return;
     }
     

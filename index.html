@@ -7,43 +7,43 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <!-- TELA DE LOGIN -->
-    <div id="telaLogin" class="tela-login">
-        <div class="login-container">
-            <div class="login-header">
-                <h1>📊 Painel Financeiro</h1>
-                <p>Faça login para acessar</p>
+<!-- TELA DE LOGIN -->
+<div id="telaLogin" class="tela-login">
+    <div class="login-container">
+        <div class="login-header">
+            <h1>📊 Painel Financeiro</h1>
+            <p>Faça login para acessar</p>
+        </div>
+        
+        <div class="login-form">
+            <div class="form-group">
+                <label>Usuário:</label>
+                <input type="text" id="username" placeholder="Digite seu usuário">
             </div>
             
-            <div class="login-form">
-                <div class="form-group">
-                    <label>Usuário:</label>
-                    <input type="text" id="username" placeholder="Digite seu usuário">
-                </div>
-                
-                <div class="form-group">
-                    <label>Senha:</label>
-                    <input type="password" id="password" placeholder="Digite sua senha" onkeypress="if(event.key==='Enter'){fazerLogin()}">
-                </div>
-                
-                <div class="login-options">
-                    <label class="remember">
-                        <input type="checkbox" id="lembrar"> Lembrar acesso
-                    </label>
-                    <a href="#" onclick="recuperarSenha()">Esqueceu a senha?</a>
-                </div>
-                
-                <button onclick="fazerLogin()" class="btn-login">Entrar</button>
-                
-                <div id="mensagemErro" class="mensagem-erro"></div>
+            <div class="form-group">
+                <label>Senha:</label>
+                <input type="password" id="password" placeholder="Digite sua senha" onkeypress="if(event.key==='Enter'){fazerLogin()}">
             </div>
             
-            <div class="login-footer">
-                <p>Usuário padrão: admin | Senha: admin123</p>
-                <p class="aviso">⚠️ Altere a senha após o primeiro acesso</p>
+            <div class="login-options">
+                <label class="remember">
+                    <input type="checkbox" id="lembrar"> Lembrar acesso
+                </label>
+                <span style="color: #999; font-size: 14px;">Contate o administrador</span>
             </div>
+            
+            <button onclick="fazerLogin()" class="btn-login">Entrar</button>
+            
+            <div id="mensagemErro" class="mensagem-erro"></div>
+        </div>
+        
+        <div class="login-footer">
+            <p>Sistema de controle financeiro</p>
+            <p class="aviso">🔒 Acesso restrito</p>
         </div>
     </div>
+</div>
 
     <!-- PAINEL PRINCIPAL (INICIALMENTE OCULTO) -->
     <div id="painelPrincipal" style="display: none;">
