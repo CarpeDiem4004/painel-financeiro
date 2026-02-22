@@ -724,39 +724,73 @@ function toggleCamposAdiados() {
 function salvarBoleto(event) {
     event.preventDefault();
     
-    // Validar períodos
-    const periodoInicio = document.getElementById('periodoInicio').value;
-    const periodoFim = document.getElementById('periodoFim').value;
-    
-    if (new Date(periodoFim) < new Date(periodoInicio)) {
-        alert('⚠️ A data final do período não pode ser menor que a data inicial!');
-        return;
+    try {
+        // Pegar valores dos campos
+        const provedor = document.getElementById('provedor')?.value.trim();
+        const dataVencimento = document.getElementById('dataVencimento')?.value;
+        const periodoInicio = document.getElementById('periodoInicio')?.value;
+        const periodoFim = document.getElementById('periodoFim')?.value;
+        const valor = document.getElementById('valor')?.value;
+        const tipoCobranca = document.getElementById('tipoCobranca')?.value;
+        const observacoes = document.getElementById('observacoes')?.value.trim();
+        
+        // Validar campos obrigatórios
+        if (!provedor || !dataVencimento || !periodoInicio || !periodoFim || !valor || !tipoCobranca) {
+            alert('⚠️ Preencha todos os campos obrigatórios!');
+            return;
+        }
+        
+        // Validar períodos
+        if (new Date(periodoFim) < new Date(periodoInicio)) {
+            alert('⚠️ A data final do período não pode ser menor que a data inicial!');
+            return;
+        }
+        
+        // Validar valor
+        const valorNumerico = parseFloat(valor);
+        if (isNaN(valorNumerico) || valorNumerico <= 0) {
+            alert('⚠️ Digite um valor válido!');
+            return;
+        }
+        
+        const novoBoleto = {
+            id: Date.now(),
+            provedor: provedor,
+            dataVencimento: dataVencimento,
+            periodoInicio: periodoInicio,
+            periodoFim: periodoFim,
+            valor: valorNumerico,
+            tipoCobranca: tipoCobranca,
+            observacoes: observacoes || '',
+            status: 'pendente',
+            adiado: false,
+            pagoParcial: false,
+            dataCriacao: new Date().toISOString()
+        };
+        
+        // Adicionar à lista
+        dados.boletos.push(novoBoleto);
+        
+        // Salvar no localStorage
+        salvarDados();
+        
+        // Atualizar interface
+        atualizarInterface();
+        
+        // Fechar modal
+        fecharModal('modalBoleto');
+        
+        // Limpar formulário
+        event.target.reset();
+        
+        // Mostrar mensagem de sucesso
+        mostrarMensagemSucesso('✅ Boleto adicionado com sucesso!');
+        
+    } catch (error) {
+        console.error('Erro ao salvar boleto:', error);
+        alert('❌ Erro ao salvar boleto. Verifique o console para mais detalhes.');
     }
-    
-    const novoBoleto = {
-        id: Date.now(),
-        provedor: document.getElementById('provedor').value.trim(),
-        dataVencimento: document.getElementById('dataVencimento').value,
-        periodoInicio: periodoInicio,
-        periodoFim: periodoFim,
-        valor: parseFloat(document.getElementById('valor').value),
-        tipoCobranca: document.getElementById('tipoCobranca').value,
-        observacoes: document.getElementById('observacoes').value.trim(),
-        status: 'pendente',
-        adiado: false,
-        pagoParcial: false,
-        dataCriacao: new Date().toISOString()
-    };
-    
-    dados.boletos.push(novoBoleto);
-    salvarDados();
-    atualizarInterface();
-    fecharModal('modalBoleto');
-    event.target.reset();
-    
-    mostrarMensagemSucesso('✅ Boleto adicionado com sucesso!');
 }
-
 function atualizarSaldo(event) {
     event.preventDefault();
     

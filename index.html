@@ -133,6 +133,7 @@
 
     <!-- MODAIS EXISTENTES (mantidos iguais) -->
     <!-- Modal para Novo Boleto -->
+<!-- Modal para Novo Boleto -->
 <div id="modalBoleto" class="modal">
     <div class="modal-content">
         <span class="close" onclick="fecharModal('modalBoleto')">&times;</span>
@@ -140,7 +141,7 @@
         <form id="formBoleto" onsubmit="salvarBoleto(event)">
             <div class="form-group">
                 <label>🏢 Provedor / Empresa:</label>
-                <input type="text" id="provedor" placeholder="Ex: Transportadora X, Posto Y, Concessionária" required>
+                <input type="text" id="provedor" placeholder="Ex: Ticket, Transportadora X, Posto Y" required>
             </div>
 
             <div class="form-group">
@@ -164,15 +165,14 @@
                 <input type="number" id="valor" step="0.01" placeholder="0,00" required>
             </div>
 
-            <div class="form-group">
-                <label>📋 Tipo de Cobrança:</label>
-                <select id="tipoCobranca" required>
-                    <option value="mensal">📅 Mensal</option>
-                    <option value="semanal">📆 Semanal</option>
-                    <option value="unico">🔹 Único</option>
-                    <option value="recorrente">🔄 Recorrente</option>
-                </select>
-            </div>
+                <div class="form-group">
+                    <label>📋 Tipo de Cobrança:</label>
+                    <select id="detalheTipoCobranca" required>
+                        <option value="mensal">📅 Mensal</option>
+                        <option value="semanal">📆 Semanal</option>
+                        <option value="unico">🔹 Único</option>
+                    </select>
+                </div>  
 
             <div class="form-group">
                 <label>📝 Observações:</label>
