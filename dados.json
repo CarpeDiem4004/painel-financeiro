@@ -1,0 +1,28 @@
+{
+    "limiteGlobal": 8450265.37,
+    "saldo": {
+        "combustivel": 50000.00,
+        "pedagio": 15000.00
+    },
+    "boletos": [
+        {
+            "id": 1705276800000,
+            "dataVencimento": "2024-01-15",
+            "valor": 15000.00,
+            "periodo": "mensal",
+            "status": "pendente",
+            "adiado": false,
+            "pagoParcial": false
+        },
+        {
+            "id": 1705363200000,
+            "dataVencimento": "2024-01-20",
+            "valor": 8500.50,
+            "periodo": "unico",
+            "status": "pago",
+            "adiado": false,
+            "pagoParcial": false,
+            "valorPago": 8500.50
+        }
+    ]
+}

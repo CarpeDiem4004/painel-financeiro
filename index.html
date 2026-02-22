@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel Financeiro</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 Painel de Controle Financeiro</h1>
+            <div class="limite-global">
+                Limite Global: R$ <span id="limiteGlobal">8.450.265,37</span>
+            </div>
+        </header>
+
+        <div class="alertas" id="alertas"></div>
+
+        <div class="cards">
+            <div class="card saldo-disponivel">
+                <h3>Saldo Disponível</h3>
+                <div class="saldo-detalhes">
+                    <p>Combustível: R$ <span id="saldoCombustivel">0,00</span></p>
+                    <p>Pedágio: R$ <span id="saldoPedagio">0,00</span></p>
+                </div>
+                <div class="saldo-total">
+                    Total Disponível: R$ <span id="saldoTotalDisponivel">0,00</span>
+                </div>
+            </div>
+
+            <div class="card resumo-mensal">
+                <h3>Resumo do Mês Atual</h3>
+                <p>Valor Pago: R$ <span id="valorPagoMes">0,00</span></p>
+                <p>Valor Pendente: R$ <span id="valorPendenteMes">0,00</span></p>
+                <p>Total: R$ <span id="totalMes">0,00</span></p>
+            </div>
+        </div>
+
+        <div class="controles">
+            <button onclick="abrirModalBoleto()" class="btn-primary">+ Novo Boleto</button>
+            <button onclick="abrirModalSaldo()" class="btn-secondary">Atualizar Saldo</button>
+            <button onclick="exportarDados()" class="btn-tertiary">Exportar Dados</button>
+        </div>
+
+        <div class="filtros">
+            <select id="filtroMes" onchange="filtrarBoletos()">
+                <option value="todos">Todos os Meses</option>
+            </select>
+        </div>
+
+        <div class="tabela-boletos">
+            <h2>Boletos Pendentes</h2>
+            <table id="tabelaBoletos">
+                <thead>
+                    <tr>
+                        <th>Data Vencimento</th>
+                        <th>Valor Original</th>
+                        <th>Período</th>
+                        <th>Status</th>
+                        <th>Adiado</th>
+                        <th>Nova Data</th>
+                        <th>Novo Valor</th>
+                        <th>Pago Parcial</th>
+                        <th>Valor Pago</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="corpoTabela"></tbody>
+            </table>
+        </div>
+
+        <div class="graficos">
+            <div class="grafico" id="graficoPendencias"></div>
+            <div class="grafico" id="graficoMensal"></div>
+        </div>
+    </div>
+
+    <!-- Modal para Novo Boleto -->
+    <div id="modalBoleto" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="fecharModal('modalBoleto')">&times;</span>
+            <h2>Novo Boleto</h2>
+            <form id="formBoleto" onsubmit="salvarBoleto(event)">
+                <div class="form-group">
+                    <label>Data de Vencimento:</label>
+                    <input type="date" id="dataVencimento" required>
+                </div>
+                <div class="form-group">
+                    <label>Valor:</label>
+                    <input type="number" id="valor" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label>Período de Cobrança:</label>
+                    <select id="periodo" required>
+                        <option value="mensal">Mensal</option>
+                        <option value="semanal">Semanal</option>
+                        <option value="unico">Único</option>
+                    </select>
+                </div>
+                <button type="submit">Salvar</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal para Atualizar Saldo -->
+    <div id="modalSaldo" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="fecharModal('modalSaldo')">&times;</span>
+            <h2>Atualizar Saldo Disponível</h2>
+            <form id="formSaldo" onsubmit="atualizarSaldo(event)">
+                <div class="form-group">
+                    <label>Saldo Combustível:</label>
+                    <input type="number" id="saldoCombustivelInput" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label>Saldo Pedágio:</label>
+                    <input type="number" id="saldoPedagioInput" step="0.01" required>
+                </div>
+                <button type="submit">Atualizar</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal para Detalhes do Boleto -->
+    <div id="modalDetalheBoleto" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="fecharModal('modalDetalheBoleto')">&times;</span>
+            <h2>Detalhes do Boleto</h2>
+            <form id="formDetalheBoleto" onsubmit="atualizarBoleto(event)">
+                <input type="hidden" id="boletoId">
+                <div class="form-group">
+                    <label>Data de Vencimento:</label>
+                    <input type="date" id="detalheDataVencimento" required>
+                </div>
+                <div class="form-group">
+                    <label>Valor:</label>
+                    <input type="number" id="detalheValor" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label>Período:</label>
+                    <select id="detalhePeriodo" required>
+                        <option value="mensal">Mensal</option>
+                        <option value="semanal">Semanal</option>
+                        <option value="unico">Único</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Status:</label>
+                    <select id="detalheStatus" onchange="toggleCamposAdiados()">
+                        <option value="pendente">Pendente</option>
+                        <option value="pago">Pago</option>
+                        <option value="adiado">Adiado</option>
+                        <option value="parcial">Pago Parcial</option>
+                    </select>
+                </div>
+                <div id="camposAdiados" style="display: none;">
+                    <div class="form-group">
+                        <label>Nova Data:</label>
+                        <input type="date" id="detalheNovaData">
+                    </div>
+                    <div class="form-group">
+                        <label>Novo Valor:</label>
+                        <input type="number" id="detalheNovoValor" step="0.01">
+                    </div>
+                </div>
+                <div id="camposParcial" style="display: none;">
+                    <div class="form-group">
+                        <label>Valor Pago:</label>
+                        <input type="number" id="detalheValorPago" step="0.01">
+                    </div>
+                </div>
+                <button type="submit">Atualizar</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
