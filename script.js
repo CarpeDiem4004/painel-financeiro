@@ -31,52 +31,48 @@ let dados = {
 // ============================================
 
 function inicializar() {
-    carregarUsuarios();
-    carregarDados();
-    verificarLembrarAcesso();
-}
-
-// Carregar usuários do localStorage
-function carregarUsuarios() {
-    const usuariosSalvos = localStorage.getItem('usuarios');
-    if (usuariosSalvos) {
-        usuarios = JSON.parse(usuariosSalvos);
-    } else {
-        // Criar usuário padrão
-        salvarUsuarios();
-    }
-}
-
-// Salvar usuários no localStorage
-function salvarUsuarios() {
-    localStorage.setItem('usuarios', JSON.stringify(usuarios));
-}
-
-// Carregar dados financeiros
-function carregarDados() {
-    const dadosSalvos = localStorage.getItem('painelFinanceiro');
-    if (dadosSalvos) {
-        dados = JSON.parse(dadosSalvos);
-    } else {
-        // Dados de exemplo
-        dados.boletos = [
-            {
-                id: Date.now() - 1000000,
-                dataVencimento: '2024-01-15',
-                valor: 15000.00,
-                periodo: 'mensal',
-                status: 'pendente'
-            },
-            {
-                id: Date.now() - 2000000,
-                dataVencimento: '2024-01-20',
-                valor: 8500.50,
-                periodo: 'unico',
-                status: 'pago',
-                valorPago: 8500.50
-            }
-        ];
-        salvarDados();
+    try {
+        // Carregar usuários
+        const usuariosSalvos = localStorage.getItem('usuarios');
+        if (usuariosSalvos) {
+            usuarios = JSON.parse(usuariosSalvos);
+        } else {
+            // Criar usuário padrão se não existir
+            usuarios = {
+                admin: {
+                    senha: 'admin123',
+                    nivel: 'admin',
+                    primeiroAcesso: true,
+                    ultimoAcesso: null
+                }
+            };
+            salvarUsuarios();
+        }
+        
+        // Carregar dados financeiros
+        const dadosSalvos = localStorage.getItem('painelFinanceiro');
+        if (dadosSalvos) {
+            dados = JSON.parse(dadosSalvos);
+        } else {
+            // Dados de exemplo
+            dados = {
+                limiteGlobal: 8450265.37,
+                saldo: {
+                    combustivel: 0,
+                    pedagio: 0
+                },
+                boletos: []
+            };
+            salvarDados();
+        }
+        
+        // Verificar se usuário está lembrado
+        verificarLembrarAcesso();
+        
+        console.log('Sistema inicializado com sucesso!');
+        
+    } catch (error) {
+        console.error('Erro na inicialização:', error);
     }
 }
 
@@ -85,64 +81,88 @@ function carregarDados() {
 // ============================================
 
 function fazerLogin() {
-    const username = document.getElementById('username').value.trim();
-    const password = document.getElementById('password').value;
-    const lembrar = document.getElementById('lembrar').checked;
-    
-    // Validar campos
-    if (!username || !password) {
-        mostrarErro('Preencha usuário e senha!');
-        return;
+    try {
+        const username = document.getElementById('username')?.value.trim();
+        const password = document.getElementById('password')?.value;
+        const lembrar = document.getElementById('lembrar')?.checked;
+        
+        // Validar campos
+        if (!username || !password) {
+            mostrarErro('Preencha usuário e senha!');
+            return;
+        }
+        
+        // Verificar se usuarios existe
+        if (!usuarios) {
+            console.error('Objeto usuarios não encontrado');
+            mostrarErro('Erro no sistema. Contate o administrador.');
+            return;
+        }
+        
+        // Verificar se usuário existe
+        if (!usuarios[username]) {
+            mostrarErro('Usuário ou senha inválidos!');
+            return;
+        }
+        
+        // Verificar senha
+        if (usuarios[username].senha !== password) {
+            mostrarErro('Usuário ou senha inválidos!');
+            return;
+        }
+        
+        // Login bem sucedido
+        usuarioAtual = {
+            nome: username,
+            nivel: usuarios[username].nivel || 'visualizador'
+        };
+        
+        // Atualizar último acesso
+        if (usuarios[username]) {
+            usuarios[username].ultimoAcesso = new Date().toISOString();
+            salvarUsuarios();
+        }
+        
+        // Salvar se "lembrar" estiver marcado
+        if (lembrar) {
+            localStorage.setItem('lembrarUsuario', username);
+        } else {
+            localStorage.removeItem('lembrarUsuario');
+        }
+        
+        // Esconder tela de login
+        const telaLogin = document.getElementById('telaLogin');
+        if (telaLogin) telaLogin.style.display = 'none';
+        
+        // Mostrar painel
+        const painelPrincipal = document.getElementById('painelPrincipal');
+        if (painelPrincipal) painelPrincipal.style.display = 'block';
+        
+        // Atualizar nome do usuário
+        const usuarioLogadoSpan = document.getElementById('usuarioLogado');
+        if (usuarioLogadoSpan) {
+            usuarioLogadoSpan.textContent = `👤 ${username} (${traduzirNivel(usuarios[username].nivel)})`;
+        }
+        
+        // Verificar se é primeiro acesso
+        if (usuarios[username] && usuarios[username].primeiroAcesso) {
+            abrirModalPrimeiroAcesso();
+        }
+        
+        // Aplicar permissões
+        if (typeof aplicarPermissoes === 'function') {
+            aplicarPermissoes();
+        }
+        
+        // Atualizar interface financeira
+        if (typeof atualizarInterface === 'function') {
+            atualizarInterface();
+        }
+        
+    } catch (error) {
+        console.error('Erro no login:', error);
+        mostrarErro('Erro ao fazer login. Verifique o console.');
     }
-    
-    // Verificar se usuário existe
-    if (!usuarios[username]) {
-        mostrarErro('Usuário ou senha inválidos!');
-        return;
-    }
-    
-    // Verificar senha
-    if (usuarios[username].senha !== password) {
-        mostrarErro('Usuário ou senha inválidos!');
-        return;
-    }
-    
-    // Login bem sucedido
-    usuarioAtual = {
-        nome: username,
-        nivel: usuarios[username].nivel
-    };
-    
-    // Atualizar último acesso
-    usuarios[username].ultimoAcesso = new Date().toISOString();
-    salvarUsuarios();
-    
-    // Salvar se "lembrar" estiver marcado
-    if (lembrar) {
-        localStorage.setItem('lembrarUsuario', username);
-    } else {
-        localStorage.removeItem('lembrarUsuario');
-    }
-    
-    // Esconder tela de login
-    document.getElementById('telaLogin').style.display = 'none';
-    
-    // Mostrar painel
-    document.getElementById('painelPrincipal').style.display = 'block';
-    
-    // Atualizar nome do usuário
-    document.getElementById('usuarioLogado').textContent = `👤 ${username} (${traduzirNivel(usuarios[username].nivel)})`;
-    
-    // Verificar se é primeiro acesso
-    if (usuarios[username].primeiroAcesso) {
-        abrirModalPrimeiroAcesso();
-    }
-    
-    // Aplicar permissões
-    aplicarPermissoes();
-    
-    // Atualizar interface financeira
-    atualizarInterface();
 }
 
 function verificarLembrarAcesso() {
