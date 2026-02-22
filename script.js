@@ -23,6 +23,7 @@ document.addEventListener('DOMContentLoaded', function() {
     carregarDadosFinanceiros();
     verificarSessao();
     verificarLembrarUsuario();
+    configurarEventos(); // <-- ADICIONADO
     console.log('Sistema inicializado!');
 });
 
@@ -121,7 +122,41 @@ function verificarLembrarUsuario() {
 }
 
 // ============================================
-// FUNÇÃO DE LOGIN CORRIGIDA
+// CONFIGURAÇÃO DE EVENTOS - NOVA FUNÇÃO
+// ============================================
+
+function configurarEventos() {
+    try {
+        // Configurar evento do filtro de mês
+        const filtroSelect = document.getElementById('filtroMes');
+        if (filtroSelect && !filtroSelect.hasAttribute('data-listener')) {
+            filtroSelect.addEventListener('change', function() {
+                console.log('Evento change disparado - mês:', this.value);
+                filtrarBoletos();
+            });
+            filtroSelect.setAttribute('data-listener', 'true');
+        }
+        
+        // Configurar evento de tecla Enter no campo de senha
+        const passwordInput = document.getElementById('password');
+        if (passwordInput && !passwordInput.hasAttribute('data-listener')) {
+            passwordInput.addEventListener('keypress', function(event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    fazerLogin();
+                }
+            });
+            passwordInput.setAttribute('data-listener', 'true');
+        }
+        
+        console.log('Eventos configurados com sucesso');
+    } catch (error) {
+        console.error('Erro ao configurar eventos:', error);
+    }
+}
+
+// ============================================
+// FUNÇÃO DE LOGIN
 // ============================================
 
 function fazerLogin() {
@@ -561,8 +596,8 @@ function salvarDados() {
 function atualizarInterface() {
     try {
         atualizarSaldos();
-        atualizarTabelaBoletos();
-        atualizarResumoMensal();
+        atualizarTabelaBoletos(document.getElementById('filtroMes')?.value || 'todos');
+        atualizarResumoMensal(document.getElementById('filtroMes')?.value || 'todos');
         verificarDiferenca();
         atualizarFiltrosMeses();
         gerarGraficos();
@@ -724,7 +759,7 @@ function atualizarSaldo(event) {
     }
 }
 
-function atualizarTabelaBoletos() {
+function atualizarTabelaBoletos(mesFiltro = 'todos') {
     const tbody = document.getElementById('corpoTabela');
     if (!tbody) return;
     
@@ -735,13 +770,48 @@ function atualizarTabelaBoletos() {
         return;
     }
     
-    dados.boletos.forEach(boleto => {
+    // Filtrar boletos por mês se necessário
+    let boletosFiltrados = dados.boletos;
+    
+    if (mesFiltro !== 'todos') {
+        const [ano, mes] = mesFiltro.split('-');
+        console.log(`Filtrando por: ${mes}/${ano}`);
+        
+        boletosFiltrados = dados.boletos.filter(b => {
+            if (!b.dataVencimento) return false;
+            
+            try {
+                const dataVenc = new Date(b.dataVencimento + 'T12:00:00');
+                const anoVenc = dataVenc.getFullYear();
+                const mesVenc = dataVenc.getMonth() + 1;
+                
+                return anoVenc === parseInt(ano) && mesVenc === parseInt(mes);
+            } catch (e) {
+                console.error('Erro ao processar data:', b.dataVencimento, e);
+                return false;
+            }
+        });
+        
+        console.log(`${boletosFiltrados.length} boletos encontrados no período`);
+    }
+    
+    // Ordenar por data de vencimento
+    boletosFiltrados.sort((a, b) => {
+        return new Date(a.dataVencimento) - new Date(b.dataVencimento);
+    });
+    
+    // Popular tabela
+    boletosFiltrados.forEach(boleto => {
         const tr = document.createElement('tr');
         
-        const dataVencimento = boleto.dataVencimento ? new Date(boleto.dataVencimento).toLocaleDateString('pt-BR') : '-';
-        const periodoInicio = boleto.periodoInicio ? new Date(boleto.periodoInicio).toLocaleDateString('pt-BR') : '-';
-        const periodoFim = boleto.periodoFim ? new Date(boleto.periodoFim).toLocaleDateString('pt-BR') : '-';
-        const novaData = boleto.novaData ? new Date(boleto.novaData).toLocaleDateString('pt-BR') : '-';
+        const dataVencimento = boleto.dataVencimento ? new Date(boleto.dataVencimento + 'T12:00:00').toLocaleDateString('pt-BR') : '-';
+        const periodoInicio = boleto.periodoInicio ? new Date(boleto.periodoInicio + 'T12:00:00').toLocaleDateString('pt-BR') : '-';
+        const periodoFim = boleto.periodoFim ? new Date(boleto.periodoFim + 'T12:00:00').toLocaleDateString('pt-BR') : '-';
+        const novaData = boleto.novaData ? new Date(boleto.novaData + 'T12:00:00').toLocaleDateString('pt-BR') : '-';
+        
+        // Capitalizar status
+        let statusTexto = boleto.status || 'pendente';
+        statusTexto = statusTexto.charAt(0).toUpperCase() + statusTexto.slice(1);
         
         tr.innerHTML = `
             <td>${dataVencimento}</td>
@@ -750,7 +820,7 @@ function atualizarTabelaBoletos() {
             <td>${periodoFim}</td>
             <td>R$ ${formatarMoeda(boleto.valor || 0)}</td>
             <td>${boleto.tipoCobranca || 'mensal'}</td>
-            <td class="status-${boleto.status || 'pendente'}">${boleto.status || 'pendente'}</td>
+            <td class="status-${boleto.status || 'pendente'}">${statusTexto}</td>
             <td>${boleto.adiado ? 'Sim' : 'Não'}</td>
             <td>${novaData}</td>
             <td>${boleto.novoValor ? 'R$ ' + formatarMoeda(boleto.novoValor) : '-'}</td>
@@ -763,6 +833,14 @@ function atualizarTabelaBoletos() {
         
         tbody.appendChild(tr);
     });
+    
+    // Se não encontrou nenhum boleto no filtro
+    if (mesFiltro !== 'todos' && boletosFiltrados.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="12" style="text-align: center; padding: 30px;">Nenhum boleto encontrado para o período selecionado</td></tr>`;
+    }
+    
+    // Aplicar permissões se usuário estiver logado
+    if (usuarioAtual) aplicarPermissoes();
 }
 
 function excluirBoleto(id) {
@@ -779,30 +857,53 @@ function excluirBoleto(id) {
     }
 }
 
-function atualizarResumoMensal() {
+function atualizarResumoMensal(mesFiltro = 'todos') {
     try {
-        const dataAtual = new Date();
-        const mesAtual = dataAtual.getMonth();
-        const anoAtual = dataAtual.getFullYear();
-        
         let valorPago = 0;
         let valorPendente = 0;
         
-        if (dados.boletos && dados.boletos.length > 0) {
-            dados.boletos.forEach(boleto => {
-                if (boleto.dataVencimento) {
-                    const dataVenc = new Date(boleto.dataVencimento);
-                    if (dataVenc.getMonth() === mesAtual && dataVenc.getFullYear() === anoAtual) {
-                        if (boleto.status === 'pago' || boleto.status === 'parcial') {
-                            valorPago += boleto.valorPago || 0;
-                        } else if (boleto.status === 'pendente' || boleto.status === 'adiado') {
-                            valorPendente += boleto.novoValor || boleto.valor || 0;
-                        }
-                    }
+        if (!dados.boletos || dados.boletos.length === 0) {
+            const pagoEl = document.getElementById('valorPagoMes');
+            const pendenteEl = document.getElementById('valorPendenteMes');
+            const totalEl = document.getElementById('totalMes');
+            
+            if (pagoEl) pagoEl.textContent = '0,00';
+            if (pendenteEl) pendenteEl.textContent = '0,00';
+            if (totalEl) totalEl.textContent = '0,00';
+            return;
+        }
+        
+        // Filtrar boletos por mês se necessário
+        let boletosParaCalcular = dados.boletos;
+        
+        if (mesFiltro !== 'todos') {
+            const [ano, mes] = mesFiltro.split('-');
+            
+            boletosParaCalcular = dados.boletos.filter(b => {
+                if (!b.dataVencimento) return false;
+                
+                try {
+                    const dataVenc = new Date(b.dataVencimento + 'T12:00:00');
+                    const anoVenc = dataVenc.getFullYear();
+                    const mesVenc = dataVenc.getMonth() + 1;
+                    
+                    return anoVenc === parseInt(ano) && mesVenc === parseInt(mes);
+                } catch (e) {
+                    return false;
                 }
             });
         }
         
+        // Calcular totais
+        boletosParaCalcular.forEach(boleto => {
+            if (boleto.status === 'pago' || boleto.status === 'parcial') {
+                valorPago += boleto.valorPago || 0;
+            } else if (boleto.status === 'pendente' || boleto.status === 'adiado') {
+                valorPendente += boleto.novoValor || boleto.valor || 0;
+            }
+        });
+        
+        // Atualizar elementos na tela
         const pagoEl = document.getElementById('valorPagoMes');
         const pendenteEl = document.getElementById('valorPendenteMes');
         const totalEl = document.getElementById('totalMes');
@@ -810,6 +911,8 @@ function atualizarResumoMensal() {
         if (pagoEl) pagoEl.textContent = formatarMoeda(valorPago);
         if (pendenteEl) pendenteEl.textContent = formatarMoeda(valorPendente);
         if (totalEl) totalEl.textContent = formatarMoeda(valorPago + valorPendente);
+        
+        console.log(`Resumo - Mês: ${mesFiltro}, Pago: ${valorPago}, Pendente: ${valorPendente}`);
         
     } catch (error) {
         console.error('Erro ao atualizar resumo mensal:', error);
@@ -849,27 +952,50 @@ function atualizarFiltrosMeses() {
         const select = document.getElementById('filtroMes');
         if (!select) return;
         
+        // Guardar valor selecionado atual
+        const valorAtual = select.value;
+        
         const meses = new Set();
         
         if (dados.boletos && dados.boletos.length > 0) {
             dados.boletos.forEach(boleto => {
                 if (boleto.dataVencimento) {
-                    const data = new Date(boleto.dataVencimento);
-                    meses.add(`${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}`);
+                    try {
+                        const data = new Date(boleto.dataVencimento + 'T12:00:00');
+                        const ano = data.getFullYear();
+                        const mes = data.getMonth() + 1;
+                        meses.add(`${ano}-${String(mes).padStart(2, '0')}`);
+                    } catch (e) {
+                        console.warn('Data inválida:', boleto.dataVencimento);
+                    }
                 }
             });
         }
         
+        // Limpar e recriar options
         select.innerHTML = '<option value="todos">Todos os Meses</option>';
         
-        Array.from(meses).sort().reverse().forEach(mes => {
-            const [ano, mesNum] = mes.split('-');
-            const data = new Date(ano, mesNum - 1);
-            const option = document.createElement('option');
-            option.value = mes;
-            option.textContent = data.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-            select.appendChild(option);
-        });
+        // Ordenar meses do mais recente para o mais antigo
+        Array.from(meses)
+            .sort()
+            .reverse()
+            .forEach(mes => {
+                const [ano, mesNum] = mes.split('-');
+                const data = new Date(ano, mesNum - 1, 1);
+                const option = document.createElement('option');
+                option.value = mes;
+                option.textContent = data.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+                select.appendChild(option);
+            });
+        
+        // Restaurar valor selecionado se possível
+        if (valorAtual !== 'todos' && Array.from(meses).includes(valorAtual)) {
+            select.value = valorAtual;
+        } else {
+            select.value = 'todos';
+        }
+        
+        console.log('Filtros de mês atualizados. Opções:', Array.from(meses));
         
     } catch (error) {
         console.error('Erro ao atualizar filtros:', error);
@@ -918,7 +1044,25 @@ function gerarGraficos() {
 }
 
 function abrirModalDetalheBoleto(id) {
-    alert('Função de edição completa em desenvolvimento. ID do boleto: ' + id);
+    // Encontrar o boleto
+    const boleto = dados.boletos.find(b => b.id === id);
+    if (!boleto) {
+        alert('Boleto não encontrado!');
+        return;
+    }
+    
+    // Preencher o modal de edição (você precisa ter o modal no HTML)
+    // Por enquanto, vamos mostrar um alert com os dados
+    alert(`
+        Editar Boleto:
+        Provedor: ${boleto.provedor}
+        Valor: R$ ${formatarMoeda(boleto.valor)}
+        Vencimento: ${new Date(boleto.dataVencimento).toLocaleDateString('pt-BR')}
+        Status: ${boleto.status}
+    `);
+    
+    // Aqui você implementaria a abertura do modal de edição
+    // document.getElementById('modalEditarBoleto').style.display = 'block';
 }
 
 function toggleCamposAdiados() {
@@ -936,7 +1080,22 @@ function toggleCamposAdiados() {
 }
 
 function filtrarBoletos() {
-    atualizarTabelaBoletos();
+    console.log('Filtrando boletos por mês...');
+    
+    // Pega o mês selecionado
+    const filtroSelect = document.getElementById('filtroMes');
+    const mesSelecionado = filtroSelect ? filtroSelect.value : 'todos';
+    
+    console.log('Mês selecionado:', mesSelecionado);
+    
+    // Atualiza a tabela com o filtro
+    atualizarTabelaBoletos(mesSelecionado);
+    
+    // Atualiza o resumo mensal baseado no filtro
+    atualizarResumoMensal(mesSelecionado);
+    
+    // Atualiza a verificação de diferença (mantém o total geral)
+    verificarDiferenca();
 }
 
 function exportarDados() {
