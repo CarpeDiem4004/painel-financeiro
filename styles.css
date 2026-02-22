@@ -313,3 +313,8 @@ header {
     pointer-events: none;
     opacity: 0.5;
 }
+
+.status-parcial {
+    color: #5bc0de;
+    font-weight: bold;
+}

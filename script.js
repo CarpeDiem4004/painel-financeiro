@@ -421,6 +421,7 @@ function salvarDados() {
 }
 
 function formatarMoeda(valor) {
+    if (valor === undefined || valor === null) return '0,00';
     return valor.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 }
 
@@ -445,6 +446,11 @@ function atualizarTabelaBoletos() {
     const filtroMes = document.getElementById('filtroMes').value;
     const tbody = document.getElementById('corpoTabela');
     
+    if (!tbody) {
+        console.error('Elemento corpoTabela não encontrado!');
+        return;
+    }
+    
     let boletosFiltrados = dados.boletos;
     
     if (filtroMes !== 'todos') {
@@ -455,26 +461,60 @@ function atualizarTabelaBoletos() {
         });
     }
     
+    // Limpar tabela
     tbody.innerHTML = '';
     
+    if (boletosFiltrados.length === 0) {
+        // Mostrar mensagem se não houver boletos
+        const tr = document.createElement('tr');
+        tr.innerHTML = '<td colspan="10" style="text-align: center; padding: 20px;">Nenhum boleto encontrado</td>';
+        tbody.appendChild(tr);
+        return;
+    }
+    
+    // Ordenar por data
     boletosFiltrados.sort((a, b) => new Date(a.dataVencimento) - new Date(b.dataVencimento));
     
     boletosFiltrados.forEach(boleto => {
         const tr = document.createElement('tr');
         
-        const statusClass = boleto.status === 'pendente' ? 'status-pendente' :
-                           boleto.status === 'pago' ? 'status-pago' : 'status-adiado';
+        // Determinar classe CSS baseada no status
+        let statusClass = '';
+        if (boleto.status === 'pendente') statusClass = 'status-pendente';
+        else if (boleto.status === 'pago') statusClass = 'status-pago';
+        else if (boleto.status === 'adiado') statusClass = 'status-adiado';
+        else if (boleto.status === 'parcial') statusClass = 'status-parcial';
+        
+        // Formatar datas
+        const dataVencimento = boleto.dataVencimento ? new Date(boleto.dataVencimento).toLocaleDateString('pt-BR') : '-';
+        const novaData = boleto.novaData ? new Date(boleto.novaData).toLocaleDateString('pt-BR') : '-';
+        
+        // Formatar valores
+        const valorOriginal = boleto.valor ? formatarMoeda(boleto.valor) : '0,00';
+        const novoValor = boleto.novoValor ? formatarMoeda(boleto.novoValor) : '-';
+        const valorPago = boleto.valorPago ? formatarMoeda(boleto.valorPago) : '-';
+        
+        // Status de adiado e pago parcial
+        const adiado = boleto.adiado ? 'Sim' : 'Não';
+        const pagoParcial = boleto.pagoParcial ? 'Sim' : 'Não';
+        
+        // Período
+        let periodoTexto = '';
+        if (boleto.periodo === 'mensal') periodoTexto = 'Mensal';
+        else if (boleto.periodo === 'semanal') periodoTexto = 'Semanal';
+        else if (boleto.periodo === 'unico') periodoTexto = 'Único';
+        else periodoTexto = boleto.periodo;
         
         tr.innerHTML = `
-            <td>${new Date(boleto.dataVencimento).toLocaleDateString('pt-BR')}</td>
-            <td>R$ ${formatarMoeda(boleto.valor)}</td>
-            <td>${boleto.periodo}</td>
-            <td class="${statusClass}">${boleto.status}</td>
-            <td>${boleto.adiado ? 'Sim' : 'Não'}</td>
-            <td>${boleto.novaData ? new Date(boleto.novaData).toLocaleDateString('pt-BR') : '-'}</td>
-            <td>${boleto.novoValor ? 'R$ ' + formatarMoeda(boleto.novoValor) : '-'}</td>
-            <td>${boleto.pagoParcial ? 'Sim' : 'Não'}</td>
-            <td>${boleto.valorPago ? 'R$ ' + formatarMoeda(boleto.valorPago) : '-'}</td>
+            <td>${dataVencimento}</td>
+            <td>R$ ${valorOriginal}</td>
+            <td>${periodoTexto}</td>
+            <td class="${statusClass}">${boleto.status || 'pendente'}</td>
+            <td>${adiado}</td>
+            <td>${novaData}</td>
+            <td>${novoValor !== '-' ? 'R$ ' + novoValor : '-'}</td>
+            <td>${pagoParcial}</td>
+            <td>${valorPago !== '-' ? 'R$ ' + valorPago : '-'}</td>
             <td>
                 <button class="btn-editar" onclick="abrirModalDetalheBoleto(${boleto.id})">Editar</button>
                 <button class="btn-excluir" onclick="excluirBoleto(${boleto.id})">Excluir</button>
@@ -484,8 +524,8 @@ function atualizarTabelaBoletos() {
         tbody.appendChild(tr);
     });
     
-    // Aplicar permissões novamente após atualizar tabela
-    if (usuarioAtual) {
+    // Aplicar permissões se usuário estiver logado
+    if (typeof usuarioAtual !== 'undefined' && usuarioAtual) {
         aplicarPermissoes();
     }
 }
