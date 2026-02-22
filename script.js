@@ -3,7 +3,14 @@
 // ============================================
 
 let usuarios = {};
-let dados = {};
+let dados = {
+    limiteGlobal: 8450265.37,
+    saldo: {
+        combustivel: 0,
+        pedagio: 0
+    },
+    boletos: []
+};
 let usuarioAtual = null;
 
 // ============================================
@@ -12,12 +19,15 @@ let usuarioAtual = null;
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Inicializando sistema...');
-    inicializarSistema();
+    carregarUsuarios();
+    carregarDadosFinanceiros();
+    verificarSessao();
+    verificarLembrarUsuario();
+    console.log('Sistema inicializado!');
 });
 
-function inicializarSistema() {
+function carregarUsuarios() {
     try {
-        // Inicializar usuários
         const usuariosSalvos = localStorage.getItem('usuarios');
         if (usuariosSalvos) {
             usuarios = JSON.parse(usuariosSalvos);
@@ -35,12 +45,24 @@ function inicializarSistema() {
             localStorage.setItem('usuarios', JSON.stringify(usuarios));
             console.log('Usuário admin criado');
         }
-        
-        // Inicializar dados financeiros
+    } catch (error) {
+        console.error('Erro ao carregar usuários:', error);
+    }
+}
+
+function carregarDadosFinanceiros() {
+    try {
         const dadosSalvos = localStorage.getItem('painelFinanceiro');
         if (dadosSalvos) {
-            dados = JSON.parse(dadosSalvos);
+            const dadosParseados = JSON.parse(dadosSalvos);
+            // Garantir que a estrutura está correta
+            dados = {
+                limiteGlobal: dadosParseados.limiteGlobal || 8450265.37,
+                saldo: dadosParseados.saldo || { combustivel: 0, pedagio: 0 },
+                boletos: dadosParseados.boletos || []
+            };
         } else {
+            // Dados padrão
             dados = {
                 limiteGlobal: 8450265.37,
                 saldo: {
@@ -51,49 +73,70 @@ function inicializarSistema() {
             };
             localStorage.setItem('painelFinanceiro', JSON.stringify(dados));
         }
-        
-        // Verificar se usuário estava logado
-        const usuarioLogado = sessionStorage.getItem('usuarioLogado');
-        if (usuarioLogado) {
-            const userData = JSON.parse(usuarioLogado);
-            usuarioAtual = userData;
-            document.getElementById('telaLogin').style.display = 'none';
-            document.getElementById('painelPrincipal').style.display = 'block';
-            document.getElementById('usuarioLogado').textContent = `👤 ${userData.nome} (${traduzirNivel(userData.nivel)})`;
-            aplicarPermissoes();
-            atualizarInterface();
-        }
-        
-        // Verificar se tem usuário lembrado
-        const usuarioLembrado = localStorage.getItem('lembrarUsuario');
-        if (usuarioLembrado && document.getElementById('username')) {
-            document.getElementById('username').value = usuarioLembrado;
-        }
-        
-        console.log('Sistema inicializado com sucesso!');
-        
+        console.log('Dados financeiros carregados');
     } catch (error) {
-        console.error('Erro na inicialização:', error);
-        alert('Erro ao inicializar o sistema. Recarregue a página.');
+        console.error('Erro ao carregar dados:', error);
+    }
+}
+
+function verificarSessao() {
+    try {
+        const sessao = sessionStorage.getItem('usuarioLogado');
+        if (sessao) {
+            const userData = JSON.parse(sessao);
+            if (userData && userData.nome && usuarios[userData.nome]) {
+                usuarioAtual = userData;
+                
+                // Esconder login e mostrar painel
+                const telaLogin = document.getElementById('telaLogin');
+                const painelPrincipal = document.getElementById('painelPrincipal');
+                const usuarioSpan = document.getElementById('usuarioLogado');
+                
+                if (telaLogin) telaLogin.style.display = 'none';
+                if (painelPrincipal) painelPrincipal.style.display = 'block';
+                if (usuarioSpan) {
+                    usuarioSpan.textContent = `👤 ${userData.nome} (${traduzirNivel(userData.nivel)})`;
+                }
+                
+                aplicarPermissoes();
+                atualizarInterface();
+                console.log('Sessão restaurada para:', userData.nome);
+            }
+        }
+    } catch (error) {
+        console.error('Erro ao verificar sessão:', error);
+    }
+}
+
+function verificarLembrarUsuario() {
+    try {
+        const usuarioLembrado = localStorage.getItem('lembrarUsuario');
+        const usernameInput = document.getElementById('username');
+        if (usuarioLembrado && usernameInput) {
+            usernameInput.value = usuarioLembrado;
+        }
+    } catch (error) {
+        console.error('Erro ao verificar lembrar usuário:', error);
     }
 }
 
 // ============================================
-// FUNÇÃO DE LOGIN - CORRIGIDA
+// FUNÇÃO DE LOGIN CORRIGIDA
 // ============================================
 
 function fazerLogin() {
     console.log('Tentando fazer login...');
     
     try {
-        // Pegar elementos
+        // Pegar elementos do DOM
         const usernameInput = document.getElementById('username');
         const passwordInput = document.getElementById('password');
         const lembrarCheck = document.getElementById('lembrar');
         
+        // Verificar se elementos existem
         if (!usernameInput || !passwordInput) {
-            console.error('Campos de login não encontrados');
-            alert('Erro: Campos de login não encontrados');
+            console.error('Campos de login não encontrados no DOM');
+            alert('Erro: Elementos de login não encontrados. Recarregue a página.');
             return;
         }
         
@@ -101,23 +144,28 @@ function fazerLogin() {
         const password = passwordInput.value;
         const lembrar = lembrarCheck ? lembrarCheck.checked : false;
         
-        console.log('Username:', username);
+        console.log('Tentativa de login para usuário:', username);
         
-        // Validar campos
-        if (!username || !password) {
-            mostrarErro('Preencha usuário e senha!');
+        // Validar campos vazios
+        if (!username) {
+            mostrarErro('Digite o nome de usuário!');
             return;
         }
         
-        // Verificar se usuarios existe
+        if (!password) {
+            mostrarErro('Digite a senha!');
+            return;
+        }
+        
+        // Verificar se objeto usuários existe e não está vazio
         if (!usuarios || Object.keys(usuarios).length === 0) {
-            console.error('Objeto usuarios vazio');
+            console.error('Objeto usuários vazio ou inválido');
             mostrarErro('Erro no sistema. Contate o administrador.');
             return;
         }
         
         // Verificar se usuário existe
-        if (!usuarios[username]) {
+        if (!usuarios.hasOwnProperty(username)) {
             console.log('Usuário não encontrado:', username);
             mostrarErro('Usuário ou senha inválidos!');
             return;
@@ -130,9 +178,10 @@ function fazerLogin() {
             return;
         }
         
+        // Login bem sucedido
         console.log('Login bem sucedido para:', username);
         
-        // Login bem sucedido
+        // Criar objeto do usuário atual
         usuarioAtual = {
             nome: username,
             nivel: usuarios[username].nivel || 'visualizador'
@@ -145,7 +194,7 @@ function fazerLogin() {
         // Salvar na sessão
         sessionStorage.setItem('usuarioLogado', JSON.stringify(usuarioAtual));
         
-        // Salvar se "lembrar" estiver marcado
+        // Salvar "lembrar" se marcado
         if (lembrar) {
             localStorage.setItem('lembrarUsuario', username);
         } else {
@@ -157,38 +206,38 @@ function fazerLogin() {
         if (telaLogin) {
             telaLogin.style.display = 'none';
         } else {
-            console.error('Tela de login não encontrada');
+            console.error('Elemento telaLogin não encontrado');
         }
         
-        // Mostrar painel
+        // Mostrar painel principal
         const painelPrincipal = document.getElementById('painelPrincipal');
         if (painelPrincipal) {
             painelPrincipal.style.display = 'block';
         } else {
-            console.error('Painel principal não encontrado');
+            console.error('Elemento painelPrincipal não encontrado');
         }
         
-        // Atualizar nome do usuário
+        // Atualizar nome do usuário no header
         const usuarioLogadoSpan = document.getElementById('usuarioLogado');
         if (usuarioLogadoSpan) {
             usuarioLogadoSpan.textContent = `👤 ${username} (${traduzirNivel(usuarios[username].nivel)})`;
         }
         
-        // Verificar se é primeiro acesso
+        // Verificar primeiro acesso
         if (usuarios[username].primeiroAcesso) {
             setTimeout(() => abrirModalPrimeiroAcesso(), 500);
         }
         
-        // Aplicar permissões
+        // Aplicar permissões baseadas no nível
         aplicarPermissoes();
         
         // Atualizar interface financeira
         atualizarInterface();
         
-        console.log('Login completo!');
+        console.log('Login completo! Painel carregado.');
         
     } catch (error) {
-        console.error('Erro no login:', error);
+        console.error('Erro detalhado no login:', error);
         mostrarErro('Erro ao fazer login: ' + error.message);
     }
 }
@@ -198,7 +247,7 @@ function fazerLogin() {
 // ============================================
 
 function mostrarErro(mensagem) {
-    console.log('Mostrando erro:', mensagem);
+    console.log('Exibindo erro:', mensagem);
     const erroDiv = document.getElementById('mensagemErro');
     if (erroDiv) {
         erroDiv.textContent = mensagem;
@@ -220,7 +269,9 @@ function mostrarMensagemSucesso(texto) {
     document.body.appendChild(msg);
     
     setTimeout(() => {
-        msg.remove();
+        if (msg.parentNode) {
+            msg.parentNode.removeChild(msg);
+        }
     }, 3000);
 }
 
@@ -236,15 +287,46 @@ function traduzirNivel(nivel) {
 function logout() {
     usuarioAtual = null;
     sessionStorage.removeItem('usuarioLogado');
-    document.getElementById('painelPrincipal').style.display = 'none';
-    document.getElementById('telaLogin').style.display = 'flex';
-    document.getElementById('password').value = '';
+    
+    const painelPrincipal = document.getElementById('painelPrincipal');
+    const telaLogin = document.getElementById('telaLogin');
+    const passwordInput = document.getElementById('password');
+    
+    if (painelPrincipal) painelPrincipal.style.display = 'none';
+    if (telaLogin) telaLogin.style.display = 'flex';
+    if (passwordInput) passwordInput.value = '';
 }
 
-function verificarLembrarAcesso() {
-    const usuarioLembrado = localStorage.getItem('lembrarUsuario');
-    if (usuarioLembrado && document.getElementById('username')) {
-        document.getElementById('username').value = usuarioLembrado;
+// ============================================
+// FUNÇÕES DE PERMISSÕES
+// ============================================
+
+function aplicarPermissoes() {
+    if (!usuarioAtual) return;
+    
+    const botoesEditar = document.querySelectorAll('.btn-editar');
+    const botoesExcluir = document.querySelectorAll('.btn-excluir');
+    const botoesAcao = document.querySelectorAll('.btn-primary, .btn-secondary, .btn-config');
+    const botoesUsuarios = document.querySelectorAll('button[onclick*="Usuarios"]');
+    
+    switch(usuarioAtual.nivel) {
+        case 'visualizador':
+            botoesEditar.forEach(btn => btn.style.display = 'none');
+            botoesExcluir.forEach(btn => btn.style.display = 'none');
+            botoesAcao.forEach(btn => btn.style.display = 'none');
+            break;
+            
+        case 'operador':
+            botoesEditar.forEach(btn => btn.style.display = 'inline-block');
+            botoesExcluir.forEach(btn => btn.style.display = 'inline-block');
+            botoesUsuarios.forEach(btn => btn.style.display = 'none');
+            break;
+            
+        case 'admin':
+            botoesEditar.forEach(btn => btn.style.display = 'inline-block');
+            botoesExcluir.forEach(btn => btn.style.display = 'inline-block');
+            botoesAcao.forEach(btn => btn.style.display = 'inline-block');
+            break;
     }
 }
 
@@ -258,7 +340,8 @@ function abrirModalUsuarios() {
         return;
     }
     atualizarTabelaUsuarios();
-    document.getElementById('modalUsuarios').style.display = 'block';
+    const modal = document.getElementById('modalUsuarios');
+    if (modal) modal.style.display = 'block';
 }
 
 function atualizarTabelaUsuarios() {
@@ -315,8 +398,11 @@ function adicionarUsuario() {
     
     localStorage.setItem('usuarios', JSON.stringify(usuarios));
     
-    document.getElementById('novoUsername').value = '';
-    document.getElementById('novoSenha').value = '';
+    const inputUsername = document.getElementById('novoUsername');
+    const inputSenha = document.getElementById('novoSenha');
+    
+    if (inputUsername) inputUsername.value = '';
+    if (inputSenha) inputSenha.value = '';
     
     atualizarTabelaUsuarios();
     mostrarMensagemSucesso('Usuário adicionado!');
@@ -351,21 +437,28 @@ function resetarSenha(username) {
 // ============================================
 
 function abrirModalAlterarSenha() {
-    document.getElementById('modalAlterarSenha').style.display = 'block';
+    const modal = document.getElementById('modalAlterarSenha');
+    if (modal) modal.style.display = 'block';
 }
 
 function abrirModalPrimeiroAcesso() {
-    document.getElementById('modalPrimeiroAcesso').style.display = 'block';
+    const modal = document.getElementById('modalPrimeiroAcesso');
+    if (modal) modal.style.display = 'block';
 }
 
 function alterarSenha(event) {
     event.preventDefault();
     
+    if (!usuarioAtual) return;
+    
     const senhaAtual = document.getElementById('senhaAtual')?.value;
     const novaSenha = document.getElementById('novaSenha')?.value;
     const confirmar = document.getElementById('confirmarSenha')?.value;
     
-    if (!usuarioAtual) return;
+    if (!senhaAtual || !novaSenha || !confirmar) {
+        alert('Preencha todos os campos!');
+        return;
+    }
     
     if (usuarios[usuarioAtual.nome].senha !== senhaAtual) {
         alert('Senha atual incorreta!');
@@ -393,10 +486,15 @@ function alterarSenha(event) {
 function alterarSenhaPrimeiroAcesso(event) {
     event.preventDefault();
     
+    if (!usuarioAtual) return;
+    
     const novaSenha = document.getElementById('primeiraNovaSenha')?.value;
     const confirmar = document.getElementById('primeiraConfirmarSenha')?.value;
     
-    if (!usuarioAtual) return;
+    if (!novaSenha || !confirmar) {
+        alert('Preencha todos os campos!');
+        return;
+    }
     
     if (novaSenha !== confirmar) {
         alert('As senhas não coincidem!');
@@ -422,99 +520,208 @@ function alterarSenhaPrimeiroAcesso(event) {
 
 function formatarMoeda(valor) {
     if (valor === undefined || valor === null || isNaN(valor)) return '0,00';
-    const numero = typeof valor === 'string' ? parseFloat(valor) : valor;
-    return numero.toLocaleString('pt-BR', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-    });
+    
+    try {
+        const numero = typeof valor === 'string' ? parseFloat(valor) : valor;
+        return numero.toLocaleString('pt-BR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    } catch (error) {
+        console.error('Erro ao formatar moeda:', error);
+        return '0,00';
+    }
 }
 
 function converterParaNumero(valorString) {
     if (!valorString) return 0;
-    const numeroLimpo = valorString.toString()
-        .replace('R$', '')
-        .replace(/\./g, '')
-        .replace(',', '.')
-        .trim();
-    return parseFloat(numeroLimpo) || 0;
+    
+    try {
+        const numeroLimpo = valorString.toString()
+            .replace('R$', '')
+            .replace(/\./g, '')
+            .replace(',', '.')
+            .trim();
+        
+        return parseFloat(numeroLimpo) || 0;
+    } catch (error) {
+        console.error('Erro ao converter número:', error);
+        return 0;
+    }
 }
 
 function salvarDados() {
-    localStorage.setItem('painelFinanceiro', JSON.stringify(dados));
+    try {
+        localStorage.setItem('painelFinanceiro', JSON.stringify(dados));
+    } catch (error) {
+        console.error('Erro ao salvar dados:', error);
+    }
 }
 
 function atualizarInterface() {
-    atualizarSaldos();
-    atualizarTabelaBoletos();
-    atualizarResumoMensal();
-    verificarDiferenca();
-    atualizarFiltrosMeses();
-    gerarGraficos();
+    try {
+        atualizarSaldos();
+        atualizarTabelaBoletos();
+        atualizarResumoMensal();
+        verificarDiferenca();
+        atualizarFiltrosMeses();
+        gerarGraficos();
+    } catch (error) {
+        console.error('Erro ao atualizar interface:', error);
+    }
 }
 
 function atualizarSaldos() {
-    const el1 = document.getElementById('saldoCombustivel');
-    const el2 = document.getElementById('saldoPedagio');
-    const el3 = document.getElementById('saldoTotalDisponivel');
+    const combustivelEl = document.getElementById('saldoCombustivel');
+    const pedagioEl = document.getElementById('saldoPedagio');
+    const totalEl = document.getElementById('saldoTotalDisponivel');
     
-    if (el1) el1.textContent = formatarMoeda(dados.saldo?.combustivel || 0);
-    if (el2) el2.textContent = formatarMoeda(dados.saldo?.pedagio || 0);
+    if (combustivelEl) {
+        combustivelEl.textContent = formatarMoeda(dados.saldo?.combustivel || 0);
+    }
+    
+    if (pedagioEl) {
+        pedagioEl.textContent = formatarMoeda(dados.saldo?.pedagio || 0);
+    }
     
     const totalDisponivel = (dados.saldo?.combustivel || 0) + (dados.saldo?.pedagio || 0);
-    if (el3) el3.textContent = formatarMoeda(totalDisponivel);
+    if (totalEl) {
+        totalEl.textContent = formatarMoeda(totalDisponivel);
+    }
 }
 
 function abrirModalBoleto() {
-    document.getElementById('modalBoleto').style.display = 'block';
+    const modal = document.getElementById('modalBoleto');
+    if (modal) modal.style.display = 'block';
 }
 
 function abrirModalSaldo() {
-    document.getElementById('saldoCombustivelInput').value = dados.saldo?.combustivel || 0;
-    document.getElementById('saldoPedagioInput').value = dados.saldo?.pedagio || 0;
-    document.getElementById('modalSaldo').style.display = 'block';
+    const combustivelInput = document.getElementById('saldoCombustivelInput');
+    const pedagioInput = document.getElementById('saldoPedagioInput');
+    const modal = document.getElementById('modalSaldo');
+    
+    if (combustivelInput) {
+        combustivelInput.value = dados.saldo?.combustivel || 0;
+    }
+    
+    if (pedagioInput) {
+        pedagioInput.value = dados.saldo?.pedagio || 0;
+    }
+    
+    if (modal) modal.style.display = 'block';
 }
 
 function fecharModal(modalId) {
-    document.getElementById(modalId).style.display = 'none';
+    const modal = document.getElementById(modalId);
+    if (modal) modal.style.display = 'none';
 }
 
 function salvarBoleto(event) {
     event.preventDefault();
     
-    const novoBoleto = {
-        id: Date.now(),
-        provedor: document.getElementById('provedor')?.value || '',
-        dataVencimento: document.getElementById('dataVencimento')?.value || '',
-        periodoInicio: document.getElementById('periodoInicio')?.value || '',
-        periodoFim: document.getElementById('periodoFim')?.value || '',
-        valor: parseFloat(document.getElementById('valor')?.value) || 0,
-        tipoCobranca: document.getElementById('tipoCobranca')?.value || 'mensal',
-        observacoes: document.getElementById('observacoes')?.value || '',
-        status: 'pendente',
-        adiado: false,
-        pagoParcial: false
-    };
-    
-    if (!dados.boletos) dados.boletos = [];
-    dados.boletos.push(novoBoleto);
-    salvarDados();
-    atualizarInterface();
-    fecharModal('modalBoleto');
-    mostrarMensagemSucesso('Boleto adicionado!');
+    try {
+        const provedor = document.getElementById('provedor')?.value || '';
+        const dataVencimento = document.getElementById('dataVencimento')?.value || '';
+        const periodoInicio = document.getElementById('periodoInicio')?.value || '';
+        const periodoFim = document.getElementById('periodoFim')?.value || '';
+        const valorInput = document.getElementById('valor')?.value || '0';
+        const tipoCobranca = document.getElementById('tipoCobranca')?.value || 'mensal';
+        const observacoes = document.getElementById('observacoes')?.value || '';
+        
+        // Validar campos obrigatórios
+        if (!provedor || !dataVencimento || !periodoInicio || !periodoFim) {
+            alert('Preencha todos os campos obrigatórios!');
+            return;
+        }
+        
+        // Validar período
+        if (new Date(periodoFim) < new Date(periodoInicio)) {
+            alert('Data final não pode ser menor que data inicial!');
+            return;
+        }
+        
+        // Converter valor
+        let valorNumerico = 0;
+        if (valorInput.includes(',')) {
+            valorNumerico = converterParaNumero(valorInput);
+        } else {
+            valorNumerico = parseFloat(valorInput) || 0;
+        }
+        
+        if (valorNumerico <= 0) {
+            alert('Digite um valor válido!');
+            return;
+        }
+        
+        const novoBoleto = {
+            id: Date.now(),
+            provedor: provedor,
+            dataVencimento: dataVencimento,
+            periodoInicio: periodoInicio,
+            periodoFim: periodoFim,
+            valor: valorNumerico,
+            tipoCobranca: tipoCobranca,
+            observacoes: observacoes,
+            status: 'pendente',
+            adiado: false,
+            pagoParcial: false
+        };
+        
+        if (!dados.boletos) dados.boletos = [];
+        dados.boletos.push(novoBoleto);
+        
+        salvarDados();
+        atualizarInterface();
+        fecharModal('modalBoleto');
+        
+        // Limpar formulário
+        const form = document.getElementById('formBoleto');
+        if (form) form.reset();
+        
+        mostrarMensagemSucesso('Boleto adicionado!');
+        
+    } catch (error) {
+        console.error('Erro ao salvar boleto:', error);
+        alert('Erro ao salvar boleto!');
+    }
 }
 
 function atualizarSaldo(event) {
     event.preventDefault();
     
-    dados.saldo = {
-        combustivel: parseFloat(document.getElementById('saldoCombustivelInput')?.value) || 0,
-        pedagio: parseFloat(document.getElementById('saldoPedagioInput')?.value) || 0
-    };
-    
-    salvarDados();
-    atualizarInterface();
-    fecharModal('modalSaldo');
-    mostrarMensagemSucesso('Saldo atualizado!');
+    try {
+        const combustivelInput = document.getElementById('saldoCombustivelInput')?.value || '0';
+        const pedagioInput = document.getElementById('saldoPedagioInput')?.value || '0';
+        
+        let combustivelValor = 0;
+        let pedagioValor = 0;
+        
+        if (combustivelInput.includes(',')) {
+            combustivelValor = converterParaNumero(combustivelInput);
+        } else {
+            combustivelValor = parseFloat(combustivelInput) || 0;
+        }
+        
+        if (pedagioInput.includes(',')) {
+            pedagioValor = converterParaNumero(pedagioInput);
+        } else {
+            pedagioValor = parseFloat(pedagioInput) || 0;
+        }
+        
+        dados.saldo = {
+            combustivel: combustivelValor,
+            pedagio: pedagioValor
+        };
+        
+        salvarDados();
+        atualizarInterface();
+        fecharModal('modalSaldo');
+        mostrarMensagemSucesso('Saldo atualizado!');
+        
+    } catch (error) {
+        console.error('Erro ao atualizar saldo:', error);
+        alert('Erro ao atualizar saldo!');
+    }
 }
 
 function atualizarTabelaBoletos() {
@@ -530,16 +737,22 @@ function atualizarTabelaBoletos() {
     
     dados.boletos.forEach(boleto => {
         const tr = document.createElement('tr');
+        
+        const dataVencimento = boleto.dataVencimento ? new Date(boleto.dataVencimento).toLocaleDateString('pt-BR') : '-';
+        const periodoInicio = boleto.periodoInicio ? new Date(boleto.periodoInicio).toLocaleDateString('pt-BR') : '-';
+        const periodoFim = boleto.periodoFim ? new Date(boleto.periodoFim).toLocaleDateString('pt-BR') : '-';
+        const novaData = boleto.novaData ? new Date(boleto.novaData).toLocaleDateString('pt-BR') : '-';
+        
         tr.innerHTML = `
-            <td>${boleto.dataVencimento ? new Date(boleto.dataVencimento).toLocaleDateString('pt-BR') : '-'}</td>
+            <td>${dataVencimento}</td>
             <td>${boleto.provedor || '-'}</td>
-            <td>${boleto.periodoInicio ? new Date(boleto.periodoInicio).toLocaleDateString('pt-BR') : '-'}</td>
-            <td>${boleto.periodoFim ? new Date(boleto.periodoFim).toLocaleDateString('pt-BR') : '-'}</td>
+            <td>${periodoInicio}</td>
+            <td>${periodoFim}</td>
             <td>R$ ${formatarMoeda(boleto.valor || 0)}</td>
             <td>${boleto.tipoCobranca || 'mensal'}</td>
             <td class="status-${boleto.status || 'pendente'}">${boleto.status || 'pendente'}</td>
             <td>${boleto.adiado ? 'Sim' : 'Não'}</td>
-            <td>${boleto.novaData ? new Date(boleto.novaData).toLocaleDateString('pt-BR') : '-'}</td>
+            <td>${novaData}</td>
             <td>${boleto.novoValor ? 'R$ ' + formatarMoeda(boleto.novoValor) : '-'}</td>
             <td>${boleto.valorPago ? 'R$ ' + formatarMoeda(boleto.valorPago) : '-'}</td>
             <td>
@@ -547,11 +760,17 @@ function atualizarTabelaBoletos() {
                 <button class="btn-excluir" onclick="excluirBoleto(${boleto.id})">Excluir</button>
             </td>
         `;
+        
         tbody.appendChild(tr);
     });
 }
 
 function excluirBoleto(id) {
+    if (!usuarioAtual || usuarioAtual.nivel === 'visualizador') {
+        alert('Sem permissão para excluir!');
+        return;
+    }
+    
     if (confirm('Excluir este boleto?')) {
         dados.boletos = dados.boletos.filter(b => b.id !== id);
         salvarDados();
@@ -561,70 +780,159 @@ function excluirBoleto(id) {
 }
 
 function atualizarResumoMensal() {
-    // Implementação básica
-    document.getElementById('valorPagoMes').textContent = '0,00';
-    document.getElementById('valorPendenteMes').textContent = '0,00';
-    document.getElementById('totalMes').textContent = '0,00';
+    try {
+        const dataAtual = new Date();
+        const mesAtual = dataAtual.getMonth();
+        const anoAtual = dataAtual.getFullYear();
+        
+        let valorPago = 0;
+        let valorPendente = 0;
+        
+        if (dados.boletos && dados.boletos.length > 0) {
+            dados.boletos.forEach(boleto => {
+                if (boleto.dataVencimento) {
+                    const dataVenc = new Date(boleto.dataVencimento);
+                    if (dataVenc.getMonth() === mesAtual && dataVenc.getFullYear() === anoAtual) {
+                        if (boleto.status === 'pago' || boleto.status === 'parcial') {
+                            valorPago += boleto.valorPago || 0;
+                        } else if (boleto.status === 'pendente' || boleto.status === 'adiado') {
+                            valorPendente += boleto.novoValor || boleto.valor || 0;
+                        }
+                    }
+                }
+            });
+        }
+        
+        const pagoEl = document.getElementById('valorPagoMes');
+        const pendenteEl = document.getElementById('valorPendenteMes');
+        const totalEl = document.getElementById('totalMes');
+        
+        if (pagoEl) pagoEl.textContent = formatarMoeda(valorPago);
+        if (pendenteEl) pendenteEl.textContent = formatarMoeda(valorPendente);
+        if (totalEl) totalEl.textContent = formatarMoeda(valorPago + valorPendente);
+        
+    } catch (error) {
+        console.error('Erro ao atualizar resumo mensal:', error);
+    }
 }
 
 function verificarDiferenca() {
-    const totalPendente = (dados.boletos || []).reduce((total, b) => {
-        if (b.status === 'pendente' || b.status === 'adiado') {
-            return total + (b.novoValor || b.valor || 0);
+    try {
+        const totalPendente = (dados.boletos || []).reduce((total, b) => {
+            if (b.status === 'pendente' || b.status === 'adiado') {
+                return total + (b.novoValor || b.valor || 0);
+            }
+            return total;
+        }, 0);
+        
+        const totalDisponivel = (dados.saldo?.combustivel || 0) + (dados.saldo?.pedagio || 0);
+        const totalGeral = totalPendente + totalDisponivel;
+        const diferenca = totalGeral - (dados.limiteGlobal || 8450265.37);
+        
+        const alertas = document.getElementById('alertas');
+        if (alertas) {
+            if (Math.abs(diferenca) > 0.01) {
+                alertas.className = 'alertas erro';
+                alertas.innerHTML = `⚠️ Diferença: R$ ${formatarMoeda(Math.abs(diferenca))} ${diferenca > 0 ? 'acima' : 'abaixo'} do limite!`;
+            } else {
+                alertas.className = 'alertas sucesso';
+                alertas.innerHTML = '✅ Valores conferem com o limite';
+            }
         }
-        return total;
-    }, 0);
-    
-    const totalDisponivel = (dados.saldo?.combustivel || 0) + (dados.saldo?.pedagio || 0);
-    const totalGeral = totalPendente + totalDisponivel;
-    const diferenca = totalGeral - (dados.limiteGlobal || 8450265.37);
-    
-    const alertas = document.getElementById('alertas');
-    if (alertas) {
-        if (Math.abs(diferenca) > 0.01) {
-            alertas.className = 'alertas erro';
-            alertas.innerHTML = `⚠️ Diferença: R$ ${formatarMoeda(Math.abs(diferenca))} ${diferenca > 0 ? 'acima' : 'abaixo'} do limite!`;
-        } else {
-            alertas.className = 'alertas sucesso';
-            alertas.innerHTML = '✅ Valores conferem com o limite';
-        }
+    } catch (error) {
+        console.error('Erro ao verificar diferença:', error);
     }
 }
 
 function atualizarFiltrosMeses() {
-    // Implementação básica
-}
-
-function gerarGraficos() {
-    const totalPendente = (dados.boletos || []).reduce((total, b) => {
-        if (b.status === 'pendente' || b.status === 'adiado') {
-            return total + (b.novoValor || b.valor || 0);
+    try {
+        const select = document.getElementById('filtroMes');
+        if (!select) return;
+        
+        const meses = new Set();
+        
+        if (dados.boletos && dados.boletos.length > 0) {
+            dados.boletos.forEach(boleto => {
+                if (boleto.dataVencimento) {
+                    const data = new Date(boleto.dataVencimento);
+                    meses.add(`${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}`);
+                }
+            });
         }
-        return total;
-    }, 0);
-    
-    const totalDisponivel = (dados.saldo?.combustivel || 0) + (dados.saldo?.pedagio || 0);
-    
-    const grafico = document.getElementById('graficoPendencias');
-    if (grafico) {
-        grafico.innerHTML = `
-            <h4>Distribuição</h4>
-            <p><strong>Pendente:</strong> R$ ${formatarMoeda(totalPendente)}</p>
-            <p><strong>Disponível:</strong> R$ ${formatarMoeda(totalDisponivel)}</p>
-        `;
+        
+        select.innerHTML = '<option value="todos">Todos os Meses</option>';
+        
+        Array.from(meses).sort().reverse().forEach(mes => {
+            const [ano, mesNum] = mes.split('-');
+            const data = new Date(ano, mesNum - 1);
+            const option = document.createElement('option');
+            option.value = mes;
+            option.textContent = data.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+            select.appendChild(option);
+        });
+        
+    } catch (error) {
+        console.error('Erro ao atualizar filtros:', error);
     }
 }
 
-function aplicarPermissoes() {
-    // Implementação básica
+function gerarGraficos() {
+    try {
+        const totalPendente = (dados.boletos || []).reduce((total, b) => {
+            if (b.status === 'pendente' || b.status === 'adiado') {
+                return total + (b.novoValor || b.valor || 0);
+            }
+            return total;
+        }, 0);
+        
+        const totalDisponivel = (dados.saldo?.combustivel || 0) + (dados.saldo?.pedagio || 0);
+        
+        const grafico = document.getElementById('graficoPendencias');
+        if (grafico) {
+            grafico.innerHTML = `
+                <h4>Distribuição de Recursos</h4>
+                <div style="background: #f5f5f5; padding: 15px; border-radius: 5px;">
+                    <p><strong>Pendente:</strong> R$ ${formatarMoeda(totalPendente)}</p>
+                    <p><strong>Disponível:</strong> R$ ${formatarMoeda(totalDisponivel)}</p>
+                    <div style="width: 100%; height: 20px; background: #ddd; margin-top: 10px; border-radius: 10px; overflow: hidden;">
+                        <div style="width: ${(totalPendente / (dados.limiteGlobal || 1)) * 100}%; height: 100%; background: #f0ad4e; float: left;"></div>
+                        <div style="width: ${(totalDisponivel / (dados.limiteGlobal || 1)) * 100}%; height: 100%; background: #5cb85c; float: left;"></div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        const graficoMensal = document.getElementById('graficoMensal');
+        if (graficoMensal) {
+            graficoMensal.innerHTML = `
+                <h4>Resumo Rápido</h4>
+                <div style="background: #f5f5f5; padding: 15px; border-radius: 5px;">
+                    <p>Total de boletos: ${dados.boletos?.length || 0}</p>
+                    <p>Total pendente: R$ ${formatarMoeda(totalPendente)}</p>
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('Erro ao gerar gráficos:', error);
+    }
 }
 
 function abrirModalDetalheBoleto(id) {
-    alert('Função em desenvolvimento: Editar boleto ' + id);
+    alert('Função de edição completa em desenvolvimento. ID do boleto: ' + id);
 }
 
 function toggleCamposAdiados() {
-    // Implementação básica
+    const status = document.getElementById('detalheStatus')?.value;
+    const camposAdiados = document.getElementById('camposAdiados');
+    const camposParcial = document.getElementById('camposParcial');
+    
+    if (camposAdiados) {
+        camposAdiados.style.display = status === 'adiado' ? 'block' : 'none';
+    }
+    
+    if (camposParcial) {
+        camposParcial.style.display = status === 'parcial' ? 'block' : 'none';
+    }
 }
 
 function filtrarBoletos() {
@@ -632,14 +940,20 @@ function filtrarBoletos() {
 }
 
 function exportarDados() {
-    const dadosString = JSON.stringify(dados, null, 2);
-    const blob = new Blob([dadosString], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `painel-financeiro-${new Date().toISOString().split('T')[0]}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    try {
+        const dadosString = JSON.stringify(dados, null, 2);
+        const blob = new Blob([dadosString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `painel-financeiro-${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        mostrarMensagemSucesso('Dados exportados!');
+    } catch (error) {
+        console.error('Erro ao exportar:', error);
+        alert('Erro ao exportar dados!');
+    }
 }
 
 // Fechar modal clicando fora
