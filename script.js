@@ -1,4 +1,22 @@
-// Dados iniciais
+// ============================================
+// CONFIGURAÇÕES DE USUÁRIOS
+// ============================================
+
+let usuarios = {
+    admin: {
+        senha: 'admin123',
+        nivel: 'admin',
+        primeiroAcesso: true,
+        ultimoAcesso: null
+    }
+};
+
+let usuarioAtual = null;
+
+// ============================================
+// DADOS FINANCEIROS
+// ============================================
+
 let dados = {
     limiteGlobal: 8450265.37,
     saldo: {
@@ -8,7 +26,33 @@ let dados = {
     boletos: []
 };
 
-// Carregar dados do localStorage
+// ============================================
+// INICIALIZAÇÃO
+// ============================================
+
+function inicializar() {
+    carregarUsuarios();
+    carregarDados();
+    verificarLembrarAcesso();
+}
+
+// Carregar usuários do localStorage
+function carregarUsuarios() {
+    const usuariosSalvos = localStorage.getItem('usuarios');
+    if (usuariosSalvos) {
+        usuarios = JSON.parse(usuariosSalvos);
+    } else {
+        // Criar usuário padrão
+        salvarUsuarios();
+    }
+}
+
+// Salvar usuários no localStorage
+function salvarUsuarios() {
+    localStorage.setItem('usuarios', JSON.stringify(usuarios));
+}
+
+// Carregar dados financeiros
 function carregarDados() {
     const dadosSalvos = localStorage.getItem('painelFinanceiro');
     if (dadosSalvos) {
@@ -32,21 +76,354 @@ function carregarDados() {
                 valorPago: 8500.50
             }
         ];
+        salvarDados();
     }
+}
+
+// ============================================
+// FUNÇÕES DE LOGIN
+// ============================================
+
+function fazerLogin() {
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+    const lembrar = document.getElementById('lembrar').checked;
+    
+    // Validar campos
+    if (!username || !password) {
+        mostrarErro('Preencha usuário e senha!');
+        return;
+    }
+    
+    // Verificar se usuário existe
+    if (!usuarios[username]) {
+        mostrarErro('Usuário não encontrado!');
+        return;
+    }
+    
+    // Verificar senha
+    if (usuarios[username].senha !== password) {
+        mostrarErro('Senha incorreta!');
+        return;
+    }
+    
+    // Login bem sucedido
+    usuarioAtual = {
+        nome: username,
+        nivel: usuarios[username].nivel
+    };
+    
+    // Atualizar último acesso
+    usuarios[username].ultimoAcesso = new Date().toISOString();
+    salvarUsuarios();
+    
+    // Salvar se "lembrar" estiver marcado
+    if (lembrar) {
+        localStorage.setItem('lembrarUsuario', username);
+    } else {
+        localStorage.removeItem('lembrarUsuario');
+    }
+    
+    // Esconder tela de login
+    document.getElementById('telaLogin').style.display = 'none';
+    
+    // Mostrar painel
+    document.getElementById('painelPrincipal').style.display = 'block';
+    
+    // Atualizar nome do usuário
+    document.getElementById('usuarioLogado').textContent = `👤 ${username} (${traduzirNivel(usuarios[username].nivel)})`;
+    
+    // Verificar se é primeiro acesso
+    if (usuarios[username].primeiroAcesso) {
+        abrirModalPrimeiroAcesso();
+    }
+    
+    // Aplicar permissões
+    aplicarPermissoes();
+    
+    // Atualizar interface financeira
     atualizarInterface();
 }
 
-// Salvar dados no localStorage
+function verificarLembrarAcesso() {
+    const usuarioLembrado = localStorage.getItem('lembrarUsuario');
+    if (usuarioLembrado && usuarios[usuarioLembrado]) {
+        document.getElementById('username').value = usuarioLembrado;
+        document.getElementById('password').focus();
+    }
+}
+
+function logout() {
+    usuarioAtual = null;
+    document.getElementById('painelPrincipal').style.display = 'none';
+    document.getElementById('telaLogin').style.display = 'flex';
+    document.getElementById('password').value = '';
+    document.getElementById('mensagemErro').classList.remove('mostrar');
+}
+
+function mostrarErro(mensagem) {
+    const erroDiv = document.getElementById('mensagemErro');
+    erroDiv.textContent = mensagem;
+    erroDiv.classList.add('mostrar');
+    
+    // Esconder após 3 segundos
+    setTimeout(() => {
+        erroDiv.classList.remove('mostrar');
+    }, 3000);
+}
+
+function traduzirNivel(nivel) {
+    const traducoes = {
+        'admin': 'Administrador',
+        'visualizador': 'Visualizador',
+        'operador': 'Operador'
+    };
+    return traducoes[nivel] || nivel;
+}
+
+// ============================================
+// PERMISSÕES DE ACESSO
+// ============================================
+
+function aplicarPermissoes() {
+    if (!usuarioAtual) return;
+    
+    const nivel = usuarioAtual.nivel;
+    
+    // Elementos que podem ser restritos
+    const botoesEditar = document.querySelectorAll('.btn-editar');
+    const botoesExcluir = document.querySelectorAll('.btn-excluir');
+    const botoesAcao = document.querySelectorAll('.btn-primary, .btn-secondary, .btn-config');
+    
+    switch(nivel) {
+        case 'visualizador':
+            // Apenas visualização - desabilitar tudo
+            botoesEditar.forEach(btn => btn.style.display = 'none');
+            botoesExcluir.forEach(btn => btn.style.display = 'none');
+            botoesAcao.forEach(btn => btn.style.display = 'none');
+            break;
+            
+        case 'operador':
+            // Pode editar, mas não gerenciar usuários
+            botoesEditar.forEach(btn => btn.style.display = 'inline-block');
+            botoesExcluir.forEach(btn => btn.style.display = 'inline-block');
+            // Esconder botões de configuração de usuários
+            document.querySelectorAll('button[onclick*="Usuarios"]').forEach(btn => btn.style.display = 'none');
+            break;
+            
+        case 'admin':
+            // Acesso total
+            botoesEditar.forEach(btn => btn.style.display = 'inline-block');
+            botoesExcluir.forEach(btn => btn.style.display = 'inline-block');
+            botoesAcao.forEach(btn => btn.style.display = 'inline-block');
+            break;
+    }
+}
+
+// ============================================
+// GERENCIAMENTO DE USUÁRIOS
+// ============================================
+
+function abrirModalUsuarios() {
+    if (usuarioAtual.nivel !== 'admin') {
+        alert('Apenas administradores podem gerenciar usuários!');
+        return;
+    }
+    
+    atualizarTabelaUsuarios();
+    document.getElementById('modalUsuarios').style.display = 'block';
+}
+
+function atualizarTabelaUsuarios() {
+    const tbody = document.getElementById('tabelaUsuarios');
+    tbody.innerHTML = '';
+    
+    Object.keys(usuarios).forEach(username => {
+        const usuario = usuarios[username];
+        const tr = document.createElement('tr');
+        
+        const ultimoAcesso = usuario.ultimoAcesso 
+            ? new Date(usuario.ultimoAcesso).toLocaleString('pt-BR')
+            : 'Nunca acessou';
+        
+        const nivelClass = `nivel-${usuario.nivel}`;
+        
+        tr.innerHTML = `
+            <td>${username}</td>
+            <td class="${nivelClass}">${traduzirNivel(usuario.nivel)}</td>
+            <td>${ultimoAcesso}</td>
+            <td>
+                ${username !== 'admin' ? `
+                    <button class="btn-reset-senha" onclick="resetarSenha('${username}')">Redefinir Senha</button>
+                    <button class="btn-remover-usuario" onclick="removerUsuario('${username}')">Remover</button>
+                ` : '⛔ Usuário padrão'}
+            </td>
+        `;
+        
+        tbody.appendChild(tr);
+    });
+}
+
+function adicionarUsuario() {
+    const username = document.getElementById('novoUsername').value.trim();
+    const senha = document.getElementById('novoSenha').value;
+    const nivel = document.getElementById('novoNivel').value;
+    
+    if (!username || !senha) {
+        alert('Preencha todos os campos!');
+        return;
+    }
+    
+    if (usuarios[username]) {
+        alert('Usuário já existe!');
+        return;
+    }
+    
+    usuarios[username] = {
+        senha: senha,
+        nivel: nivel,
+        primeiroAcesso: true,
+        ultimoAcesso: null
+    };
+    
+    salvarUsuarios();
+    
+    // Limpar campos
+    document.getElementById('novoUsername').value = '';
+    document.getElementById('novoSenha').value = '';
+    
+    // Atualizar tabela
+    atualizarTabelaUsuarios();
+    
+    mostrarMensagemSucesso('Usuário adicionado com sucesso!');
+}
+
+function removerUsuario(username) {
+    if (username === 'admin') {
+        alert('Não é possível remover o usuário admin padrão!');
+        return;
+    }
+    
+    if (confirm(`Tem certeza que deseja remover o usuário ${username}?`)) {
+        delete usuarios[username];
+        salvarUsuarios();
+        atualizarTabelaUsuarios();
+        mostrarMensagemSucesso('Usuário removido!');
+    }
+}
+
+function resetarSenha(username) {
+    const novaSenha = prompt('Digite a nova senha para o usuário ' + username);
+    
+    if (novaSenha && novaSenha.trim()) {
+        usuarios[username].senha = novaSenha;
+        usuarios[username].primeiroAcesso = true;
+        salvarUsuarios();
+        mostrarMensagemSucesso('Senha redefinida com sucesso!');
+    }
+}
+
+// ============================================
+// ALTERAÇÃO DE SENHA
+// ============================================
+
+function abrirModalAlterarSenha() {
+    document.getElementById('modalAlterarSenha').style.display = 'block';
+}
+
+function abrirModalPrimeiroAcesso() {
+    document.getElementById('modalPrimeiroAcesso').style.display = 'block';
+}
+
+function alterarSenha(event) {
+    event.preventDefault();
+    
+    const senhaAtual = document.getElementById('senhaAtual').value;
+    const novaSenha = document.getElementById('novaSenha').value;
+    const confirmar = document.getElementById('confirmarSenha').value;
+    
+    if (!usuarioAtual) return;
+    
+    // Verificar senha atual
+    if (usuarios[usuarioAtual.nome].senha !== senhaAtual) {
+        alert('Senha atual incorreta!');
+        return;
+    }
+    
+    // Verificar nova senha
+    if (novaSenha !== confirmar) {
+        alert('Nova senha e confirmação não coincidem!');
+        return;
+    }
+    
+    if (novaSenha.length < 6) {
+        alert('A senha deve ter pelo menos 6 caracteres!');
+        return;
+    }
+    
+    // Atualizar senha
+    usuarios[usuarioAtual.nome].senha = novaSenha;
+    usuarios[usuarioAtual.nome].primeiroAcesso = false;
+    salvarUsuarios();
+    
+    fecharModal('modalAlterarSenha');
+    mostrarMensagemSucesso('Senha alterada com sucesso!');
+}
+
+function alterarSenhaPrimeiroAcesso(event) {
+    event.preventDefault();
+    
+    const novaSenha = document.getElementById('primeiraNovaSenha').value;
+    const confirmar = document.getElementById('primeiraConfirmarSenha').value;
+    
+    if (!usuarioAtual) return;
+    
+    if (novaSenha !== confirmar) {
+        alert('As senhas não coincidem!');
+        return;
+    }
+    
+    if (novaSenha.length < 6) {
+        alert('A senha deve ter pelo menos 6 caracteres!');
+        return;
+    }
+    
+    // Atualizar senha
+    usuarios[usuarioAtual.nome].senha = novaSenha;
+    usuarios[usuarioAtual.nome].primeiroAcesso = false;
+    salvarUsuarios();
+    
+    fecharModal('modalPrimeiroAcesso');
+    mostrarMensagemSucesso('Senha alterada com sucesso! Seja bem-vindo!');
+}
+
+function recuperarSenha() {
+    alert('Para recuperar sua senha, entre em contato com o administrador do sistema.');
+}
+
+function mostrarMensagemSucesso(texto) {
+    const msg = document.createElement('div');
+    msg.className = 'mensagem-sucesso';
+    msg.textContent = texto;
+    document.body.appendChild(msg);
+    
+    setTimeout(() => {
+        msg.remove();
+    }, 3000);
+}
+
+// ============================================
+// FUNÇÕES FINANCEIRAS (MANTIDAS DO CÓDIGO ANTERIOR)
+// ============================================
+
 function salvarDados() {
     localStorage.setItem('painelFinanceiro', JSON.stringify(dados));
 }
 
-// Formatar valor para moeda
 function formatarMoeda(valor) {
     return valor.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 }
 
-// Atualizar interface completa
 function atualizarInterface() {
     atualizarSaldos();
     atualizarTabelaBoletos();
@@ -56,7 +433,6 @@ function atualizarInterface() {
     gerarGraficos();
 }
 
-// Atualizar saldos disponíveis
 function atualizarSaldos() {
     document.getElementById('saldoCombustivel').textContent = formatarMoeda(dados.saldo.combustivel);
     document.getElementById('saldoPedagio').textContent = formatarMoeda(dados.saldo.pedagio);
@@ -65,7 +441,6 @@ function atualizarSaldos() {
     document.getElementById('saldoTotalDisponivel').textContent = formatarMoeda(totalDisponivel);
 }
 
-// Atualizar tabela de boletos
 function atualizarTabelaBoletos() {
     const filtroMes = document.getElementById('filtroMes').value;
     const tbody = document.getElementById('corpoTabela');
@@ -108,9 +483,13 @@ function atualizarTabelaBoletos() {
         
         tbody.appendChild(tr);
     });
+    
+    // Aplicar permissões novamente após atualizar tabela
+    if (usuarioAtual) {
+        aplicarPermissoes();
+    }
 }
 
-// Atualizar resumo mensal
 function atualizarResumoMensal() {
     const dataAtual = new Date();
     const mesAtual = dataAtual.getMonth();
@@ -136,7 +515,6 @@ function atualizarResumoMensal() {
     document.getElementById('totalMes').textContent = formatarMoeda(valorPago + valorPendente);
 }
 
-// Verificar diferença no limite global
 function verificarDiferenca() {
     const totalPendente = calcularTotalPendente();
     const totalDisponivel = dados.saldo.combustivel + dados.saldo.pedagio;
@@ -154,7 +532,6 @@ function verificarDiferenca() {
     }
 }
 
-// Calcular total pendente
 function calcularTotalPendente() {
     return dados.boletos.reduce((total, boleto) => {
         if (boleto.status === 'pendente' || boleto.status === 'adiado') {
@@ -164,7 +541,6 @@ function calcularTotalPendente() {
     }, 0);
 }
 
-// Atualizar filtros de meses
 function atualizarFiltrosMeses() {
     const meses = new Set();
     dados.boletos.forEach(boleto => {
@@ -189,12 +565,10 @@ function atualizarFiltrosMeses() {
     select.value = valorAtual;
 }
 
-// Gerar gráficos (versão simplificada usando texto)
 function gerarGraficos() {
     const graficoPendencias = document.getElementById('graficoPendencias');
     const graficoMensal = document.getElementById('graficoMensal');
     
-    // Gráfico de pendencias
     const totalPendente = calcularTotalPendente();
     const totalDisponivel = dados.saldo.combustivel + dados.saldo.pedagio;
     
@@ -210,7 +584,6 @@ function gerarGraficos() {
         </div>
     `;
     
-    // Gráfico mensal simplificado
     const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
     const dataAtual = new Date();
     let html = '<h4>Últimos 3 Meses</h4><div style="background: #eee; padding: 20px; border-radius: 5px;">';
@@ -244,18 +617,34 @@ function gerarGraficos() {
     graficoMensal.innerHTML = html;
 }
 
-// Funções do modal
+// ============================================
+// FUNÇÕES DOS MODAIS
+// ============================================
+
 function abrirModalBoleto() {
+    if (usuarioAtual.nivel === 'visualizador') {
+        alert('Você não tem permissão para adicionar boletos!');
+        return;
+    }
     document.getElementById('modalBoleto').style.display = 'block';
 }
 
 function abrirModalSaldo() {
+    if (usuarioAtual.nivel === 'visualizador') {
+        alert('Você não tem permissão para alterar saldos!');
+        return;
+    }
     document.getElementById('saldoCombustivelInput').value = dados.saldo.combustivel;
     document.getElementById('saldoPedagioInput').value = dados.saldo.pedagio;
     document.getElementById('modalSaldo').style.display = 'block';
 }
 
 function abrirModalDetalheBoleto(id) {
+    if (usuarioAtual.nivel === 'visualizador') {
+        alert('Você não tem permissão para editar boletos!');
+        return;
+    }
+    
     const boleto = dados.boletos.find(b => b.id === id);
     if (!boleto) return;
     
@@ -289,7 +678,10 @@ function toggleCamposAdiados() {
     document.getElementById('camposParcial').style.display = status === 'parcial' ? 'block' : 'none';
 }
 
-// Salvar novo boleto
+// ============================================
+// FUNÇÕES CRUD
+// ============================================
+
 function salvarBoleto(event) {
     event.preventDefault();
     
@@ -310,7 +702,6 @@ function salvarBoleto(event) {
     event.target.reset();
 }
 
-// Atualizar saldo
 function atualizarSaldo(event) {
     event.preventDefault();
     
@@ -322,7 +713,6 @@ function atualizarSaldo(event) {
     fecharModal('modalSaldo');
 }
 
-// Atualizar boleto
 function atualizarBoleto(event) {
     event.preventDefault();
     
@@ -355,8 +745,12 @@ function atualizarBoleto(event) {
     fecharModal('modalDetalheBoleto');
 }
 
-// Excluir boleto
 function excluirBoleto(id) {
+    if (usuarioAtual.nivel === 'visualizador') {
+        alert('Você não tem permissão para excluir boletos!');
+        return;
+    }
+    
     if (confirm('Tem certeza que deseja excluir este boleto?')) {
         dados.boletos = dados.boletos.filter(b => b.id !== id);
         salvarDados();
@@ -364,13 +758,11 @@ function excluirBoleto(id) {
     }
 }
 
-// Filtrar boletos
 function filtrarBoletos() {
     atualizarTabelaBoletos();
     atualizarResumoMensal();
 }
 
-// Exportar dados
 function exportarDados() {
     const dadosString = JSON.stringify(dados, null, 2);
     const blob = new Blob([dadosString], { type: 'application/json' });
@@ -382,12 +774,15 @@ function exportarDados() {
     URL.revokeObjectURL(url);
 }
 
-// Fechar modal clicando fora
+// ============================================
+// EVENTOS GLOBAIS
+// ============================================
+
 window.onclick = function(event) {
     if (event.target.classList.contains('modal')) {
         event.target.style.display = 'none';
     }
 }
 
-// Inicializar
-document.addEventListener('DOMContentLoaded', carregarDados);
+// Inicializar quando a página carregar
+document.addEventListener('DOMContentLoaded', inicializar);
