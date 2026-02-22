@@ -446,10 +446,7 @@ function atualizarTabelaBoletos() {
     const filtroMes = document.getElementById('filtroMes').value;
     const tbody = document.getElementById('corpoTabela');
     
-    if (!tbody) {
-        console.error('Elemento corpoTabela não encontrado!');
-        return;
-    }
+    if (!tbody) return;
     
     let boletosFiltrados = dados.boletos;
     
@@ -461,68 +458,70 @@ function atualizarTabelaBoletos() {
         });
     }
     
-    // Limpar tabela
     tbody.innerHTML = '';
     
     if (boletosFiltrados.length === 0) {
-        // Mostrar mensagem se não houver boletos
         const tr = document.createElement('tr');
-        tr.innerHTML = '<td colspan="10" style="text-align: center; padding: 20px;">Nenhum boleto encontrado</td>';
+        tr.innerHTML = '<td colspan="12" style="text-align: center; padding: 30px;">📭 Nenhum boleto encontrado</td>';
         tbody.appendChild(tr);
         return;
     }
     
-    // Ordenar por data
     boletosFiltrados.sort((a, b) => new Date(a.dataVencimento) - new Date(b.dataVencimento));
     
     boletosFiltrados.forEach(boleto => {
         const tr = document.createElement('tr');
         
-        // Determinar classe CSS baseada no status
         let statusClass = '';
         if (boleto.status === 'pendente') statusClass = 'status-pendente';
         else if (boleto.status === 'pago') statusClass = 'status-pago';
         else if (boleto.status === 'adiado') statusClass = 'status-adiado';
         else if (boleto.status === 'parcial') statusClass = 'status-parcial';
         
-        // Formatar datas
+        // Formatações
         const dataVencimento = boleto.dataVencimento ? new Date(boleto.dataVencimento).toLocaleDateString('pt-BR') : '-';
+        const periodoInicio = boleto.periodoInicio ? new Date(boleto.periodoInicio).toLocaleDateString('pt-BR') : '-';
+        const periodoFim = boleto.periodoFim ? new Date(boleto.periodoFim).toLocaleDateString('pt-BR') : '-';
         const novaData = boleto.novaData ? new Date(boleto.novaData).toLocaleDateString('pt-BR') : '-';
         
-        // Formatar valores
         const valorOriginal = boleto.valor ? formatarMoeda(boleto.valor) : '0,00';
         const novoValor = boleto.novoValor ? formatarMoeda(boleto.novoValor) : '-';
         const valorPago = boleto.valorPago ? formatarMoeda(boleto.valorPago) : '-';
         
-        // Status de adiado e pago parcial
         const adiado = boleto.adiado ? 'Sim' : 'Não';
         const pagoParcial = boleto.pagoParcial ? 'Sim' : 'Não';
         
-        // Período
-        let periodoTexto = '';
-        if (boleto.periodo === 'mensal') periodoTexto = 'Mensal';
-        else if (boleto.periodo === 'semanal') periodoTexto = 'Semanal';
-        else if (boleto.periodo === 'unico') periodoTexto = 'Único';
-        else periodoTexto = boleto.periodo;
+        // Badge para tipo de cobrança
+        let tipoBadge = '';
+        if (boleto.tipoCobranca === 'mensal') tipoBadge = '📅 Mensal';
+        else if (boleto.tipoCobranca === 'semanal') tipoBadge = '📆 Semanal';
+        else if (boleto.tipoCobranca === 'unico') tipoBadge = '🔹 Único';
+        else if (boleto.tipoCobranca === 'recorrente') tipoBadge = '🔄 Recorrente';
+        else tipoBadge = boleto.tipoCobranca || '📅 Mensal';
         
         tr.innerHTML = `
             <td>${dataVencimento}</td>
+            <td>${boleto.provedor || '-'}</td>
+            <td>${periodoInicio}</td>
+            <td>${periodoFim}</td>
             <td>R$ ${valorOriginal}</td>
-            <td>${periodoTexto}</td>
+            <td>${tipoBadge}</td>
             <td class="${statusClass}">${boleto.status || 'pendente'}</td>
             <td>${adiado}</td>
             <td>${novaData}</td>
             <td>${novoValor !== '-' ? 'R$ ' + novoValor : '-'}</td>
-            <td>${pagoParcial}</td>
             <td>${valorPago !== '-' ? 'R$ ' + valorPago : '-'}</td>
             <td>
-                <button class="btn-editar" onclick="abrirModalDetalheBoleto(${boleto.id})">Editar</button>
-                <button class="btn-excluir" onclick="excluirBoleto(${boleto.id})">Excluir</button>
+                <button class="btn-editar" onclick="abrirModalDetalheBoleto(${boleto.id})">✏️ Editar</button>
+                <button class="btn-excluir" onclick="excluirBoleto(${boleto.id})">🗑️ Excluir</button>
             </td>
         `;
         
         tbody.appendChild(tr);
     });
+    
+    if (usuarioAtual) aplicarPermissoes();
+}
     
     // Aplicar permissões se usuário estiver logado
     if (typeof usuarioAtual !== 'undefined' && usuarioAtual) {
@@ -689,9 +688,13 @@ function abrirModalDetalheBoleto(id) {
     if (!boleto) return;
     
     document.getElementById('boletoId').value = boleto.id;
+    document.getElementById('detalheProvedor').value = boleto.provedor || '';
     document.getElementById('detalheDataVencimento').value = boleto.dataVencimento;
+    document.getElementById('detalhePeriodoInicio').value = boleto.periodoInicio || boleto.dataVencimento;
+    document.getElementById('detalhePeriodoFim').value = boleto.periodoFim || boleto.dataVencimento;
     document.getElementById('detalheValor').value = boleto.valor;
-    document.getElementById('detalhePeriodo').value = boleto.periodo;
+    document.getElementById('detalheTipoCobranca').value = boleto.tipoCobranca || 'mensal';
+    document.getElementById('detalheObservacoes').value = boleto.observacoes || '';
     document.getElementById('detalheStatus').value = boleto.status || 'pendente';
     
     toggleCamposAdiados();
@@ -708,10 +711,6 @@ function abrirModalDetalheBoleto(id) {
     document.getElementById('modalDetalheBoleto').style.display = 'block';
 }
 
-function fecharModal(modalId) {
-    document.getElementById(modalId).style.display = 'none';
-}
-
 function toggleCamposAdiados() {
     const status = document.getElementById('detalheStatus').value;
     document.getElementById('camposAdiados').style.display = status === 'adiado' ? 'block' : 'none';
@@ -725,14 +724,28 @@ function toggleCamposAdiados() {
 function salvarBoleto(event) {
     event.preventDefault();
     
+    // Validar períodos
+    const periodoInicio = document.getElementById('periodoInicio').value;
+    const periodoFim = document.getElementById('periodoFim').value;
+    
+    if (new Date(periodoFim) < new Date(periodoInicio)) {
+        alert('⚠️ A data final do período não pode ser menor que a data inicial!');
+        return;
+    }
+    
     const novoBoleto = {
         id: Date.now(),
+        provedor: document.getElementById('provedor').value.trim(),
         dataVencimento: document.getElementById('dataVencimento').value,
+        periodoInicio: periodoInicio,
+        periodoFim: periodoFim,
         valor: parseFloat(document.getElementById('valor').value),
-        periodo: document.getElementById('periodo').value,
+        tipoCobranca: document.getElementById('tipoCobranca').value,
+        observacoes: document.getElementById('observacoes').value.trim(),
         status: 'pendente',
         adiado: false,
-        pagoParcial: false
+        pagoParcial: false,
+        dataCriacao: new Date().toISOString()
     };
     
     dados.boletos.push(novoBoleto);
@@ -740,6 +753,8 @@ function salvarBoleto(event) {
     atualizarInterface();
     fecharModal('modalBoleto');
     event.target.reset();
+    
+    mostrarMensagemSucesso('✅ Boleto adicionado com sucesso!');
 }
 
 function atualizarSaldo(event) {
@@ -761,11 +776,26 @@ function atualizarBoleto(event) {
     
     if (!boleto) return;
     
+    // Validar períodos
+    const periodoInicio = document.getElementById('detalhePeriodoInicio').value;
+    const periodoFim = document.getElementById('detalhePeriodoFim').value;
+    
+    if (new Date(periodoFim) < new Date(periodoInicio)) {
+        alert('⚠️ A data final do período não pode ser menor que a data inicial!');
+        return;
+    }
+    
+    // Atualizar campos básicos
+    boleto.provedor = document.getElementById('detalheProvedor').value.trim();
     boleto.dataVencimento = document.getElementById('detalheDataVencimento').value;
+    boleto.periodoInicio = periodoInicio;
+    boleto.periodoFim = periodoFim;
     boleto.valor = parseFloat(document.getElementById('detalheValor').value);
-    boleto.periodo = document.getElementById('detalhePeriodo').value;
+    boleto.tipoCobranca = document.getElementById('detalheTipoCobranca').value;
+    boleto.observacoes = document.getElementById('detalheObservacoes').value.trim();
     boleto.status = document.getElementById('detalheStatus').value;
     
+    // Processar status especiais
     if (boleto.status === 'adiado') {
         boleto.adiado = true;
         boleto.novaData = document.getElementById('detalheNovaData').value;
@@ -783,6 +813,7 @@ function atualizarBoleto(event) {
     salvarDados();
     atualizarInterface();
     fecharModal('modalDetalheBoleto');
+    mostrarMensagemSucesso('✅ Boleto atualizado com sucesso!');
 }
 
 function excluirBoleto(id) {

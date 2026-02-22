@@ -672,3 +672,75 @@ tr:hover {
 .mb-20 {
     margin-bottom: 20px;
 }
+
+/* Melhorias nos formulários */
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 2px solid #e0e0e0;
+    border-radius: 5px;
+    font-size: 14px;
+    font-family: inherit;
+    resize: vertical;
+    transition: border-color 0.3s;
+}
+
+textarea:focus {
+    border-color: #667eea;
+    outline: none;
+}
+
+/* Estilo para os cabeçalhos das seções */
+.modal h4 {
+    margin: 15px 0 10px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+/* Melhorias nos campos de data */
+input[type="date"] {
+    font-family: inherit;
+    text-transform: uppercase;
+}
+
+/* Dicas visuais */
+.input-hint {
+    font-size: 12px;
+    color: #999;
+    margin-top: 5px;
+}
+
+/* Badges para tipo de cobrança */
+.tipo-cobranca-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.tipo-mensal {
+    background: #e3f2fd;
+    color: #1976d2;
+}
+
+.tipo-semanal {
+    background: #fff3e0;
+    color: #f57c00;
+}
+
+.tipo-unico {
+    background: #e8f5e8;
+    color: #388e3c;
+}
+
+.tipo-recorrente {
+    background: #f3e5f5;
+    color: #8e24aa;
+}

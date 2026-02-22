@@ -102,20 +102,22 @@
             <div class="tabela-boletos">
              <h2>Boletos</h2>
                 <table id="tabelaBoletos">
-                    <thead>
-                        <tr>
-                            <th>Data Vencimento</th>
-                            <th>Valor Original</th>
-                            <th>Período</th>
-                            <th>Status</th>
-                            <th>Adiado</th>
-                            <th>Nova Data</th>
-                            <th>Novo Valor</th>
-                            <th>Pago Parcial</th>
-                            <th>Valor Pago</th>
-                            <th>Ações</th>
-                        </tr>
-                    </thead>
+                <thead>
+                    <tr>
+                        <th>📅 Vencimento</th>
+                        <th>🏢 Provedor</th>
+                        <th>📆 Período Início</th>
+                        <th>📆 Período Fim</th>
+                        <th>💰 Valor</th>
+                        <th>📋 Tipo</th>
+                        <th>📊 Status</th>
+                        <th>⏰ Adiado</th>
+                        <th>📅 Nova Data</th>
+                        <th>💵 Novo Valor</th>
+                        <th>✅ Valor Pago</th>
+                        <th>⚙️ Ações</th>
+                    </tr>
+                </thead>
                     <tbody id="corpoTabela">
                     <!-- Os dados serão inseridos aqui pelo JavaScript -->
                     </tbody>
@@ -131,31 +133,56 @@
 
     <!-- MODAIS EXISTENTES (mantidos iguais) -->
     <!-- Modal para Novo Boleto -->
-    <div id="modalBoleto" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="fecharModal('modalBoleto')">&times;</span>
-            <h2>Novo Boleto</h2>
-            <form id="formBoleto" onsubmit="salvarBoleto(event)">
+<div id="modalBoleto" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="fecharModal('modalBoleto')">&times;</span>
+        <h2>📄 Novo Boleto</h2>
+        <form id="formBoleto" onsubmit="salvarBoleto(event)">
+            <div class="form-group">
+                <label>🏢 Provedor / Empresa:</label>
+                <input type="text" id="provedor" placeholder="Ex: Transportadora X, Posto Y, Concessionária" required>
+            </div>
+
+            <div class="form-group">
+                <label>📅 Data de Vencimento:</label>
+                <input type="date" id="dataVencimento" required>
+            </div>
+
+            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                 <div class="form-group">
-                    <label>Data de Vencimento:</label>
-                    <input type="date" id="dataVencimento" required>
+                    <label>📆 Período Início:</label>
+                    <input type="date" id="periodoInicio" required>
                 </div>
                 <div class="form-group">
-                    <label>Valor:</label>
-                    <input type="number" id="valor" step="0.01" required>
+                    <label>📆 Período Fim:</label>
+                    <input type="date" id="periodoFim" required>
                 </div>
-                <div class="form-group">
-                    <label>Período de Cobrança:</label>
-                    <select id="periodo" required>
-                        <option value="mensal">Mensal</option>
-                        <option value="semanal">Semanal</option>
-                        <option value="unico">Único</option>
-                    </select>
-                </div>
-                <button type="submit">Salvar</button>
-            </form>
-        </div>
+            </div>
+
+            <div class="form-group">
+                <label>💰 Valor (R$):</label>
+                <input type="number" id="valor" step="0.01" placeholder="0,00" required>
+            </div>
+
+            <div class="form-group">
+                <label>📋 Tipo de Cobrança:</label>
+                <select id="tipoCobranca" required>
+                    <option value="mensal">📅 Mensal</option>
+                    <option value="semanal">📆 Semanal</option>
+                    <option value="unico">🔹 Único</option>
+                    <option value="recorrente">🔄 Recorrente</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>📝 Observações:</label>
+                <textarea id="observacoes" rows="2" placeholder="Observações adicionais..."></textarea>
+            </div>
+
+            <button type="submit">💾 Salvar Boleto</button>
+        </form>
     </div>
+</div>
 
     <!-- Modal para Atualizar Saldo -->
     <div id="modalSaldo" class="modal">
@@ -176,58 +203,89 @@
         </div>
     </div>
 
-    <!-- Modal para Detalhes do Boleto -->
-    <div id="modalDetalheBoleto" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="fecharModal('modalDetalheBoleto')">&times;</span>
-            <h2>Detalhes do Boleto</h2>
-            <form id="formDetalheBoleto" onsubmit="atualizarBoleto(event)">
-                <input type="hidden" id="boletoId">
+<!-- Modal para Detalhes do Boleto (Edição) -->
+<div id="modalDetalheBoleto" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="fecharModal('modalDetalheBoleto')">&times;</span>
+        <h2>✏️ Editar Boleto</h2>
+        <form id="formDetalheBoleto" onsubmit="atualizarBoleto(event)">
+            <input type="hidden" id="boletoId">
+            
+            <div class="form-group">
+                <label>🏢 Provedor / Empresa:</label>
+                <input type="text" id="detalheProvedor" required>
+            </div>
+
+            <div class="form-group">
+                <label>📅 Data de Vencimento:</label>
+                <input type="date" id="detalheDataVencimento" required>
+            </div>
+
+            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                 <div class="form-group">
-                    <label>Data de Vencimento:</label>
-                    <input type="date" id="detalheDataVencimento" required>
+                    <label>📆 Período Início:</label>
+                    <input type="date" id="detalhePeriodoInicio" required>
                 </div>
                 <div class="form-group">
-                    <label>Valor:</label>
-                    <input type="number" id="detalheValor" step="0.01" required>
+                    <label>📆 Período Fim:</label>
+                    <input type="date" id="detalhePeriodoFim" required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>💰 Valor (R$):</label>
+                <input type="number" id="detalheValor" step="0.01" required>
+            </div>
+
+            <div class="form-group">
+                <label>📋 Tipo de Cobrança:</label>
+                <select id="detalheTipoCobranca" required>
+                    <option value="mensal">📅 Mensal</option>
+                    <option value="semanal">📆 Semanal</option>
+                    <option value="unico">🔹 Único</option>
+                    <option value="recorrente">🔄 Recorrente</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>📝 Observações:</label>
+                <textarea id="detalheObservacoes" rows="2"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>📊 Status:</label>
+                <select id="detalheStatus" onchange="toggleCamposAdiados()">
+                    <option value="pendente">⏳ Pendente</option>
+                    <option value="pago">✅ Pago</option>
+                    <option value="adiado">⏰ Adiado</option>
+                    <option value="parcial">🔄 Pago Parcial</option>
+                </select>
+            </div>
+
+            <div id="camposAdiados" style="display: none; border-left: 3px solid #ffc107; padding-left: 15px; margin: 15px 0;">
+                <h4 style="color: #ffc107; margin-bottom: 10px;">⏰ Informações do Adiamento</h4>
+                <div class="form-group">
+                    <label>Nova Data de Vencimento:</label>
+                    <input type="date" id="detalheNovaData">
                 </div>
                 <div class="form-group">
-                    <label>Período:</label>
-                    <select id="detalhePeriodo" required>
-                        <option value="mensal">Mensal</option>
-                        <option value="semanal">Semanal</option>
-                        <option value="unico">Único</option>
-                    </select>
+                    <label>Novo Valor (R$):</label>
+                    <input type="number" id="detalheNovoValor" step="0.01">
                 </div>
+            </div>
+
+            <div id="camposParcial" style="display: none; border-left: 3px solid #17a2b8; padding-left: 15px; margin: 15px 0;">
+                <h4 style="color: #17a2b8; margin-bottom: 10px;">🔄 Informações do Pagamento Parcial</h4>
                 <div class="form-group">
-                    <label>Status:</label>
-                    <select id="detalheStatus" onchange="toggleCamposAdiados()">
-                        <option value="pendente">Pendente</option>
-                        <option value="pago">Pago</option>
-                        <option value="adiado">Adiado</option>
-                        <option value="parcial">Pago Parcial</option>
-                    </select>
+                    <label>Valor Pago (R$):</label>
+                    <input type="number" id="detalheValorPago" step="0.01">
                 </div>
-                <div id="camposAdiados" style="display: none;">
-                    <div class="form-group">
-                        <label>Nova Data:</label>
-                        <input type="date" id="detalheNovaData">
-                    </div>
-                    <div class="form-group">
-                        <label>Novo Valor:</label>
-                        <input type="number" id="detalheNovoValor" step="0.01">
-                    </div>
-                </div>
-                <div id="camposParcial" style="display: none;">
-                    <div class="form-group">
-                        <label>Valor Pago:</label>
-                        <input type="number" id="detalheValorPago" step="0.01">
-                    </div>
-                </div>
-                <button type="submit">Atualizar</button>
-            </form>
-        </div>
+            </div>
+
+            <button type="submit">💾 Atualizar Boleto</button>
+        </form>
     </div>
+</div>
 
     <!-- NOVOS MODAIS PARA USUÁRIOS -->
     <!-- Modal de Gerenciamento de Usuários -->
