@@ -34,10 +34,9 @@ function carregarUsuarios() {
             usuarios = JSON.parse(usuariosSalvos);
             console.log('Usuários carregados:', Object.keys(usuarios));
             
-            // DEBUG: Mostrar senhas no console (remover em produção)
-            Object.keys(usuarios).forEach(u => {
-                console.log(`Usuário: ${u}, Senha: ${usuarios[u].senha}, Nível: ${usuarios[u].nivel}`);
-            });
+            // DEBUG SEGURO - Mostrar apenas nomes, NÃO mostrar senhas
+            console.log('Usuários disponíveis:', Object.keys(usuarios));
+            
         } else {
             // Criar usuário admin padrão
             usuarios = {
@@ -49,7 +48,7 @@ function carregarUsuarios() {
                 }
             };
             localStorage.setItem('usuarios', JSON.stringify(usuarios));
-            console.log('Usuário admin criado com senha: admin123');
+            console.log('Usuário admin criado');
         }
     } catch (error) {
         console.error('Erro ao carregar usuários:', error);
@@ -226,7 +225,7 @@ function configurarEventos() {
 }
 
 // ============================================
-// FUNÇÃO DE LOGIN CORRIGIDA
+// FUNÇÃO DE LOGIN CORRIGIDA (SEM EXPOR SENHAS)
 // ============================================
 
 function fazerLogin() {
@@ -250,7 +249,6 @@ function fazerLogin() {
         const lembrar = lembrarCheck ? lembrarCheck.checked : false;
         
         console.log('Tentativa de login para usuário:', username);
-        console.log('Usuários cadastrados:', Object.keys(usuarios));
         
         // Validar campos vazios
         if (!username) {
@@ -277,7 +275,6 @@ function fazerLogin() {
         
         if (!usuarioEncontrado) {
             console.log('Usuário não encontrado:', username);
-            console.log('Usuários disponíveis:', Object.keys(usuarios));
             mostrarErro('Usuário ou senha inválidos!');
             return;
         }
@@ -285,11 +282,7 @@ function fazerLogin() {
         // Usar o nome exato como está cadastrado
         const nomeExato = usuarioEncontrado;
         
-        console.log('Verificando senha...');
-        console.log('Senha esperada:', usuarios[nomeExato].senha);
-        console.log('Senha fornecida:', password);
-        
-        // Verificar senha
+        // Verificar senha (sem mostrar no console)
         if (usuarios[nomeExato].senha !== password) {
             console.log('Senha incorreta para:', nomeExato);
             mostrarErro('Usuário ou senha inválidos!');
@@ -529,7 +522,6 @@ function adicionarUsuario() {
     };
     
     console.log('Usuário adicionado:', username);
-    console.log('Senha definida:', senha);
     
     // Salvar no localStorage
     localStorage.setItem('usuarios', JSON.stringify(usuarios));
@@ -573,19 +565,45 @@ function resetarSenha(username) {
 }
 
 // ============================================
-// FUNÇÃO DE DEBUG - VERIFICAR USUÁRIOS
+// FUNÇÃO DE DEBUG - VERIFICAR USUÁRIOS (SEM SENHAS)
 // ============================================
 
 function verificarUsuarios() {
     console.log('=== USUÁRIOS CADASTRADOS ===');
-    console.log(usuarios);
     
-    // Mostrar no console para debug
+    // Mostrar apenas nomes, sem senhas
     Object.keys(usuarios).forEach(username => {
-        console.log(`Usuário: ${username}, Senha: ${usuarios[username].senha}, Nível: ${usuarios[username].nivel}`);
+        console.log(`Usuário: ${username}, Nível: ${usuarios[username].nivel}`);
     });
     
     alert(`Total de usuários: ${Object.keys(usuarios).length}\nVerifique o console para detalhes (F12)`);
+}
+
+// ============================================
+// FUNÇÃO DE EMERGÊNCIA - CRIAR USUÁRIO DANIEL SANTOS
+// ============================================
+
+function criarUsuarioDaniel() {
+    // Carregar usuários atuais
+    let usuariosAtuais = JSON.parse(localStorage.getItem('usuarios') || '{}');
+    
+    // Adicionar Daniel_Santos se não existir
+    if (!usuariosAtuais.Daniel_Santos) {
+        usuariosAtuais.Daniel_Santos = {
+            senha: '123456',
+            nivel: 'visualizador',
+            primeiroAcesso: true,
+            ultimoAcesso: null
+        };
+        
+        localStorage.setItem('usuarios', JSON.stringify(usuariosAtuais));
+        usuarios = usuariosAtuais;
+        
+        alert('✅ Usuário Daniel_Santos criado!\nSenha: 123456');
+        console.log('Usuário Daniel_Santos adicionado');
+    } else {
+        alert('Usuário Daniel_Santos já existe!');
+    }
 }
 
 // ============================================
@@ -604,7 +622,7 @@ function resetarUsuarios() {
         };
         localStorage.setItem('usuarios', JSON.stringify(usuarios));
         alert('Usuários resetados! Faça login com admin / admin123');
-        console.log('Usuários resetados:', usuarios);
+        console.log('Usuários resetados');
     }
 }
 
@@ -704,23 +722,6 @@ function importarUsuarios() {
     };
     
     input.click();
-}
-
-function criarUsuarioPadrao() {
-    if (!usuarios['Daniel_Santos']) {
-        usuarios['Daniel_Santos'] = {
-            senha: '123456',
-            nivel: 'visualizador',
-            primeiroAcesso: true,
-            ultimoAcesso: null
-        };
-        
-        localStorage.setItem('usuarios', JSON.stringify(usuarios));
-        console.log('Usuário Daniel_Santos criado com senha: 123456');
-        alert('Usuário Daniel_Santos criado! Senha: 123456');
-    } else {
-        alert('Usuário Daniel_Santos já existe!');
-    }
 }
 
 // ============================================
@@ -1620,4 +1621,4 @@ window.onclick = function(event) {
     if (event.target.classList.contains('modal')) {
         event.target.style.display = 'none';
     }
-}
+};
