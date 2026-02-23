@@ -687,7 +687,8 @@ function importarUsuarios() {
                 }
                 
                 // Atualizar tabela se estiver aberta
-                if (document.getElementById('modalUsuarios').style.display === 'block') {
+                const modalUsuarios = document.getElementById('modalUsuarios');
+                if (modalUsuarios && modalUsuarios.style.display === 'block') {
                     atualizarTabelaUsuarios();
                 }
                 
@@ -1400,7 +1401,7 @@ function gerarGraficos() {
 }
 
 // ============================================
-// FUNÇÕES DE EDIÇÃO DE BOLETOS (NOVAS E MELHORADAS)
+// FUNÇÕES DE EDIÇÃO DE BOLETOS
 // ============================================
 
 function abrirModalDetalheBoleto(id) {
