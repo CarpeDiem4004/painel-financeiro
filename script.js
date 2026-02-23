@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', function() {
     carregarDadosFinanceiros();
     verificarSessao();
     verificarLembrarUsuario();
-    configurarEventos(); // <-- ADICIONADO
+    configurarEventos();
     console.log('Sistema inicializado!');
 });
 
@@ -63,14 +63,51 @@ function carregarDadosFinanceiros() {
                 boletos: dadosParseados.boletos || []
             };
         } else {
-            // Dados padrão
+            // Dados padrão com exemplos
             dados = {
                 limiteGlobal: 8450265.37,
                 saldo: {
-                    combustivel: 0,
-                    pedagio: 0
+                    combustivel: 210337.99,
+                    pedagio: 455.44
                 },
-                boletos: []
+                boletos: [
+                    {
+                        id: 1,
+                        provedor: 'Ticket',
+                        dataVencimento: '2026-02-24',
+                        periodoInicio: '2026-02-01',
+                        periodoFim: '2026-02-10',
+                        valor: 76.64,
+                        tipoCobranca: 'mensal',
+                        observacoes: '',
+                        status: 'pendente',
+                        adiado: false
+                    },
+                    {
+                        id: 2,
+                        provedor: 'Ticket-Line Haul',
+                        dataVencimento: '2026-02-24',
+                        periodoInicio: '2026-02-09',
+                        periodoFim: '2026-02-19',
+                        valor: 663267.94,
+                        tipoCobranca: 'mensal',
+                        observacoes: '',
+                        status: 'pendente',
+                        adiado: false
+                    },
+                    {
+                        id: 3,
+                        provedor: 'Ticket-Postos',
+                        dataVencimento: '2026-02-24',
+                        periodoInicio: '2026-02-01',
+                        periodoFim: '2026-02-11',
+                        valor: 81462.02,
+                        tipoCobranca: 'mensal',
+                        observacoes: '',
+                        status: 'pendente',
+                        adiado: false
+                    }
+                ]
             };
             localStorage.setItem('painelFinanceiro', JSON.stringify(dados));
         }
@@ -122,7 +159,7 @@ function verificarLembrarUsuario() {
 }
 
 // ============================================
-// CONFIGURAÇÃO DE EVENTOS - NOVA FUNÇÃO
+// CONFIGURAÇÃO DE EVENTOS
 // ============================================
 
 function configurarEventos() {
@@ -137,6 +174,25 @@ function configurarEventos() {
             filtroSelect.setAttribute('data-listener', 'true');
         }
         
+        // Configurar evento do filtro de status
+        const filtroStatus = document.getElementById('filtroStatus');
+        if (filtroStatus && !filtroStatus.hasAttribute('data-listener')) {
+            filtroStatus.addEventListener('change', function() {
+                console.log('Filtro status alterado:', this.value);
+                filtrarBoletos();
+            });
+            filtroStatus.setAttribute('data-listener', 'true');
+        }
+        
+        // Configurar evento do campo de busca
+        const filtroBusca = document.getElementById('filtroBusca');
+        if (filtroBusca && !filtroBusca.hasAttribute('data-listener')) {
+            filtroBusca.addEventListener('keyup', function() {
+                filtrarBoletos();
+            });
+            filtroBusca.setAttribute('data-listener', 'true');
+        }
+        
         // Configurar evento de tecla Enter no campo de senha
         const passwordInput = document.getElementById('password');
         if (passwordInput && !passwordInput.hasAttribute('data-listener')) {
@@ -147,6 +203,15 @@ function configurarEventos() {
                 }
             });
             passwordInput.setAttribute('data-listener', 'true');
+        }
+        
+        // Configurar evento para limpar filtros
+        const btnLimpar = document.getElementById('btnLimparFiltros');
+        if (btnLimpar && !btnLimpar.hasAttribute('data-listener')) {
+            btnLimpar.addEventListener('click', function() {
+                limparFiltros();
+            });
+            btnLimpar.setAttribute('data-listener', 'true');
         }
         
         console.log('Eventos configurados com sucesso');
@@ -596,11 +661,11 @@ function salvarDados() {
 function atualizarInterface() {
     try {
         atualizarSaldos();
-        atualizarTabelaBoletos(document.getElementById('filtroMes')?.value || 'todos');
-        atualizarResumoMensal(document.getElementById('filtroMes')?.value || 'todos');
-        verificarDiferenca();
         atualizarFiltrosMeses();
+        aplicarFiltrosAtuais();
+        verificarDiferenca();
         gerarGraficos();
+        atualizarResumoFiltro();
     } catch (error) {
         console.error('Erro ao atualizar interface:', error);
     }
@@ -759,7 +824,20 @@ function atualizarSaldo(event) {
     }
 }
 
-function atualizarTabelaBoletos(mesFiltro = 'todos') {
+// ============================================
+// FUNÇÕES DE FILTRO MELHORADAS
+// ============================================
+
+function aplicarFiltrosAtuais() {
+    const filtroMes = document.getElementById('filtroMes')?.value || 'todos';
+    const filtroStatus = document.getElementById('filtroStatus')?.value || 'todos';
+    const filtroBusca = document.getElementById('filtroBusca')?.value?.toLowerCase() || '';
+    
+    atualizarTabelaBoletos(filtroMes, filtroStatus, filtroBusca);
+    atualizarResumoMensal(filtroMes);
+}
+
+function atualizarTabelaBoletos(mesFiltro = 'todos', statusFiltro = 'todos', buscaFiltro = '') {
     const tbody = document.getElementById('corpoTabela');
     if (!tbody) return;
     
@@ -770,30 +848,45 @@ function atualizarTabelaBoletos(mesFiltro = 'todos') {
         return;
     }
     
-    // Filtrar boletos por mês se necessário
-    let boletosFiltrados = dados.boletos;
-    
-    if (mesFiltro !== 'todos') {
-        const [ano, mes] = mesFiltro.split('-');
-        console.log(`Filtrando por: ${mes}/${ano}`);
-        
-        boletosFiltrados = dados.boletos.filter(b => {
-            if (!b.dataVencimento) return false;
+    // Aplicar todos os filtros
+    let boletosFiltrados = dados.boletos.filter(boleto => {
+        // Filtro por mês
+        if (mesFiltro !== 'todos') {
+            const [ano, mes] = mesFiltro.split('-');
+            if (!boleto.dataVencimento) return false;
             
             try {
-                const dataVenc = new Date(b.dataVencimento + 'T12:00:00');
+                const dataVenc = new Date(boleto.dataVencimento + 'T12:00:00');
                 const anoVenc = dataVenc.getFullYear();
                 const mesVenc = dataVenc.getMonth() + 1;
                 
-                return anoVenc === parseInt(ano) && mesVenc === parseInt(mes);
+                if (anoVenc !== parseInt(ano) || mesVenc !== parseInt(mes)) {
+                    return false;
+                }
             } catch (e) {
-                console.error('Erro ao processar data:', b.dataVencimento, e);
+                console.error('Erro ao processar data:', boleto.dataVencimento, e);
                 return false;
             }
-        });
+        }
         
-        console.log(`${boletosFiltrados.length} boletos encontrados no período`);
-    }
+        // Filtro por status
+        if (statusFiltro !== 'todos') {
+            if (boleto.status !== statusFiltro) {
+                return false;
+            }
+        }
+        
+        // Filtro por busca (provedor)
+        if (buscaFiltro) {
+            if (!boleto.provedor || !boleto.provedor.toLowerCase().includes(buscaFiltro)) {
+                return false;
+            }
+        }
+        
+        return true;
+    });
+    
+    console.log(`${boletosFiltrados.length} boletos encontrados após filtros`);
     
     // Ordenar por data de vencimento
     boletosFiltrados.sort((a, b) => {
@@ -834,13 +927,86 @@ function atualizarTabelaBoletos(mesFiltro = 'todos') {
         tbody.appendChild(tr);
     });
     
-    // Se não encontrou nenhum boleto no filtro
-    if (mesFiltro !== 'todos' && boletosFiltrados.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="12" style="text-align: center; padding: 30px;">Nenhum boleto encontrado para o período selecionado</td></tr>`;
+    // Se não encontrou nenhum boleto nos filtros
+    if (boletosFiltrados.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="12" style="text-align: center; padding: 30px;">Nenhum boleto encontrado com os filtros selecionados</td></tr>`;
     }
+    
+    // Atualizar resumo dos filtros
+    atualizarResumoFiltro(boletosFiltrados);
     
     // Aplicar permissões se usuário estiver logado
     if (usuarioAtual) aplicarPermissoes();
+}
+
+function atualizarResumoFiltro(boletosFiltrados = null) {
+    try {
+        if (!boletosFiltrados) {
+            const filtroMes = document.getElementById('filtroMes')?.value || 'todos';
+            const filtroStatus = document.getElementById('filtroStatus')?.value || 'todos';
+            const filtroBusca = document.getElementById('filtroBusca')?.value?.toLowerCase() || '';
+            
+            // Reaplicar filtros para pegar os boletos atuais
+            boletosFiltrados = dados.boletos?.filter(boleto => {
+                if (filtroMes !== 'todos') {
+                    const [ano, mes] = filtroMes.split('-');
+                    if (!boleto.dataVencimento) return false;
+                    try {
+                        const dataVenc = new Date(boleto.dataVencimento + 'T12:00:00');
+                        const anoVenc = dataVenc.getFullYear();
+                        const mesVenc = dataVenc.getMonth() + 1;
+                        if (anoVenc !== parseInt(ano) || mesVenc !== parseInt(mes)) return false;
+                    } catch (e) { return false; }
+                }
+                if (filtroStatus !== 'todos' && boleto.status !== filtroStatus) return false;
+                if (filtroBusca && (!boleto.provedor || !boleto.provedor.toLowerCase().includes(filtroBusca))) return false;
+                return true;
+            }) || [];
+        }
+        
+        const totalBoletos = boletosFiltrados.length;
+        
+        let totalPendente = 0;
+        let totalPago = 0;
+        
+        boletosFiltrados.forEach(b => {
+            if (b.status === 'pendente' || b.status === 'adiado') {
+                totalPendente += b.novoValor || b.valor || 0;
+            } else if (b.status === 'pago' || b.status === 'parcial') {
+                totalPago += b.valorPago || b.valor || 0;
+            }
+        });
+        
+        const totalBoletosEl = document.getElementById('totalBoletosFiltrados');
+        const totalPendenteEl = document.getElementById('totalPendenteFiltrado');
+        const totalPagoEl = document.getElementById('totalPagoFiltrado');
+        
+        if (totalBoletosEl) totalBoletosEl.textContent = totalBoletos;
+        if (totalPendenteEl) totalPendenteEl.textContent = `R$ ${formatarMoeda(totalPendente)}`;
+        if (totalPagoEl) totalPagoEl.textContent = `R$ ${formatarMoeda(totalPago)}`;
+        
+    } catch (error) {
+        console.error('Erro ao atualizar resumo do filtro:', error);
+    }
+}
+
+function filtrarBoletos() {
+    console.log('Filtrando boletos...');
+    aplicarFiltrosAtuais();
+}
+
+function limparFiltros() {
+    console.log('Limpando filtros...');
+    
+    const filtroMes = document.getElementById('filtroMes');
+    const filtroStatus = document.getElementById('filtroStatus');
+    const filtroBusca = document.getElementById('filtroBusca');
+    
+    if (filtroMes) filtroMes.value = 'todos';
+    if (filtroStatus) filtroStatus.value = 'todos';
+    if (filtroBusca) filtroBusca.value = '';
+    
+    aplicarFiltrosAtuais();
 }
 
 function excluirBoleto(id) {
@@ -973,7 +1139,7 @@ function atualizarFiltrosMeses() {
         }
         
         // Limpar e recriar options
-        select.innerHTML = '<option value="todos">Todos os Meses</option>';
+        select.innerHTML = '<option value="todos">📅 Todos os Meses</option>';
         
         // Ordenar meses do mais recente para o mais antigo
         Array.from(meses)
@@ -1043,26 +1209,183 @@ function gerarGraficos() {
     }
 }
 
+// ============================================
+// FUNÇÕES DE EDIÇÃO DE BOLETOS (NOVAS E MELHORADAS)
+// ============================================
+
 function abrirModalDetalheBoleto(id) {
-    // Encontrar o boleto
+    console.log('Abrindo edição para boleto ID:', id);
+    
     const boleto = dados.boletos.find(b => b.id === id);
     if (!boleto) {
         alert('Boleto não encontrado!');
         return;
     }
     
-    // Preencher o modal de edição (você precisa ter o modal no HTML)
-    // Por enquanto, vamos mostrar um alert com os dados
-    alert(`
-        Editar Boleto:
-        Provedor: ${boleto.provedor}
-        Valor: R$ ${formatarMoeda(boleto.valor)}
-        Vencimento: ${new Date(boleto.dataVencimento).toLocaleDateString('pt-BR')}
-        Status: ${boleto.status}
-    `);
+    // Preencher campos básicos
+    const boletoId = document.getElementById('boletoId');
+    const detalheProvedor = document.getElementById('detalheProvedor');
+    const detalheDataVencimento = document.getElementById('detalheDataVencimento');
+    const detalhePeriodoInicio = document.getElementById('detalhePeriodoInicio');
+    const detalhePeriodoFim = document.getElementById('detalhePeriodoFim');
+    const detalheValor = document.getElementById('detalheValor');
+    const detalheTipoCobranca = document.getElementById('detalheTipoCobranca');
+    const detalheObservacoes = document.getElementById('detalheObservacoes');
+    const detalheStatus = document.getElementById('detalheStatus');
+    const detalheNovaData = document.getElementById('detalheNovaData');
+    const detalheNovoValor = document.getElementById('detalheNovoValor');
+    const detalheValorPago = document.getElementById('detalheValorPago');
     
-    // Aqui você implementaria a abertura do modal de edição
-    // document.getElementById('modalEditarBoleto').style.display = 'block';
+    if (boletoId) boletoId.value = boleto.id;
+    if (detalheProvedor) detalheProvedor.value = boleto.provedor || '';
+    if (detalheDataVencimento) detalheDataVencimento.value = boleto.dataVencimento || '';
+    if (detalhePeriodoInicio) detalhePeriodoInicio.value = boleto.periodoInicio || '';
+    if (detalhePeriodoFim) detalhePeriodoFim.value = boleto.periodoFim || '';
+    if (detalheValor) detalheValor.value = boleto.valor || 0;
+    if (detalheTipoCobranca) detalheTipoCobranca.value = boleto.tipoCobranca || 'mensal';
+    if (detalheObservacoes) detalheObservacoes.value = boleto.observacoes || '';
+    if (detalheStatus) detalheStatus.value = boleto.status || 'pendente';
+    if (detalheNovaData) detalheNovaData.value = boleto.novaData || '';
+    if (detalheNovoValor) detalheNovoValor.value = boleto.novoValor || '';
+    if (detalheValorPago) detalheValorPago.value = boleto.valorPago || '';
+    
+    // Mostrar/esconder campos conforme status
+    toggleCamposAdiados();
+    
+    const modal = document.getElementById('modalDetalheBoleto');
+    if (modal) modal.style.display = 'block';
+}
+
+function atualizarBoleto(event) {
+    event.preventDefault();
+    
+    console.log('Atualizando boleto...');
+    
+    try {
+        const id = parseInt(document.getElementById('boletoId').value);
+        const boletoIndex = dados.boletos.findIndex(b => b.id === id);
+        
+        if (boletoIndex === -1) {
+            alert('Boleto não encontrado!');
+            return;
+        }
+        
+        // Capturar valores do formulário
+        const provedor = document.getElementById('detalheProvedor').value;
+        const dataVencimento = document.getElementById('detalheDataVencimento').value;
+        const periodoInicio = document.getElementById('detalhePeriodoInicio').value;
+        const periodoFim = document.getElementById('detalhePeriodoFim').value;
+        const valor = parseFloat(document.getElementById('detalheValor').value) || 0;
+        const tipoCobranca = document.getElementById('detalheTipoCobranca').value;
+        const observacoes = document.getElementById('detalheObservacoes').value;
+        const status = document.getElementById('detalheStatus').value;
+        
+        // Validar campos obrigatórios
+        if (!provedor || !dataVencimento || !periodoInicio || !periodoFim) {
+            alert('Preencha todos os campos obrigatórios!');
+            return;
+        }
+        
+        if (valor <= 0) {
+            alert('Digite um valor válido!');
+            return;
+        }
+        
+        // Validar período
+        if (new Date(periodoFim) < new Date(periodoInicio)) {
+            alert('Data final não pode ser menor que data inicial!');
+            return;
+        }
+        
+        // Criar objeto atualizado
+        const boletoAtualizado = {
+            ...dados.boletos[boletoIndex],
+            provedor,
+            dataVencimento,
+            periodoInicio,
+            periodoFim,
+            valor,
+            tipoCobranca,
+            observacoes,
+            status
+        };
+        
+        // Processar status específicos
+        if (status === 'adiado') {
+            const novaData = document.getElementById('detalheNovaData').value;
+            const novoValor = parseFloat(document.getElementById('detalheNovoValor').value) || 0;
+            
+            if (!novaData) {
+                alert('Informe a nova data de vencimento para o adiamento!');
+                return;
+            }
+            
+            boletoAtualizado.adiado = true;
+            boletoAtualizado.novaData = novaData;
+            boletoAtualizado.novoValor = novoValor > 0 ? novoValor : valor;
+            boletoAtualizado.valorPago = 0;
+            
+            // Remover campos de outros status
+            delete boletoAtualizado.valorPago;
+            
+        } else if (status === 'parcial') {
+            const valorPago = parseFloat(document.getElementById('detalheValorPago').value) || 0;
+            
+            if (valorPago <= 0) {
+                alert('Informe o valor pago!');
+                return;
+            }
+            
+            if (valorPago > valor) {
+                alert('Valor pago não pode ser maior que o valor total!');
+                return;
+            }
+            
+            boletoAtualizado.adiado = false;
+            boletoAtualizado.valorPago = valorPago;
+            
+            // Remover campos de adiamento
+            delete boletoAtualizado.novaData;
+            delete boletoAtualizado.novoValor;
+            
+        } else if (status === 'pago') {
+            boletoAtualizado.adiado = false;
+            boletoAtualizado.valorPago = valor;
+            
+            // Remover campos de adiamento
+            delete boletoAtualizado.novaData;
+            delete boletoAtualizado.novoValor;
+            
+        } else { // pendente
+            boletoAtualizado.adiado = false;
+            
+            // Remover todos os campos especiais
+            delete boletoAtualizado.novaData;
+            delete boletoAtualizado.novoValor;
+            delete boletoAtualizado.valorPago;
+        }
+        
+        // Atualizar o boleto no array
+        dados.boletos[boletoIndex] = boletoAtualizado;
+        
+        // Salvar no localStorage
+        salvarDados();
+        
+        // Atualizar interface
+        atualizarInterface();
+        
+        // Fechar modal
+        fecharModal('modalDetalheBoleto');
+        
+        // Mostrar mensagem de sucesso
+        mostrarMensagemSucesso('Boleto atualizado com sucesso!');
+        
+        console.log('Boleto atualizado:', boletoAtualizado);
+        
+    } catch (error) {
+        console.error('Erro ao atualizar boleto:', error);
+        alert('Erro ao atualizar boleto: ' + error.message);
+    }
 }
 
 function toggleCamposAdiados() {
@@ -1070,32 +1393,18 @@ function toggleCamposAdiados() {
     const camposAdiados = document.getElementById('camposAdiados');
     const camposParcial = document.getElementById('camposParcial');
     
-    if (camposAdiados) {
-        camposAdiados.style.display = status === 'adiado' ? 'block' : 'none';
+    console.log('Toggle campos para status:', status);
+    
+    // Esconder todos primeiro
+    if (camposAdiados) camposAdiados.style.display = 'none';
+    if (camposParcial) camposParcial.style.display = 'none';
+    
+    // Mostrar campos específicos
+    if (status === 'adiado' && camposAdiados) {
+        camposAdiados.style.display = 'block';
+    } else if (status === 'parcial' && camposParcial) {
+        camposParcial.style.display = 'block';
     }
-    
-    if (camposParcial) {
-        camposParcial.style.display = status === 'parcial' ? 'block' : 'none';
-    }
-}
-
-function filtrarBoletos() {
-    console.log('Filtrando boletos por mês...');
-    
-    // Pega o mês selecionado
-    const filtroSelect = document.getElementById('filtroMes');
-    const mesSelecionado = filtroSelect ? filtroSelect.value : 'todos';
-    
-    console.log('Mês selecionado:', mesSelecionado);
-    
-    // Atualiza a tabela com o filtro
-    atualizarTabelaBoletos(mesSelecionado);
-    
-    // Atualiza o resumo mensal baseado no filtro
-    atualizarResumoMensal(mesSelecionado);
-    
-    // Atualiza a verificação de diferença (mantém o total geral)
-    verificarDiferenca();
 }
 
 function exportarDados() {
