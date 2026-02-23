@@ -33,6 +33,11 @@ function carregarUsuarios() {
         if (usuariosSalvos) {
             usuarios = JSON.parse(usuariosSalvos);
             console.log('Usuários carregados:', Object.keys(usuarios));
+            
+            // DEBUG: Mostrar senhas no console (remover em produção)
+            Object.keys(usuarios).forEach(u => {
+                console.log(`Usuário: ${u}, Senha: ${usuarios[u].senha}, Nível: ${usuarios[u].nivel}`);
+            });
         } else {
             // Criar usuário admin padrão
             usuarios = {
@@ -44,7 +49,7 @@ function carregarUsuarios() {
                 }
             };
             localStorage.setItem('usuarios', JSON.stringify(usuarios));
-            console.log('Usuário admin criado');
+            console.log('Usuário admin criado com senha: admin123');
         }
     } catch (error) {
         console.error('Erro ao carregar usuários:', error);
@@ -221,7 +226,7 @@ function configurarEventos() {
 }
 
 // ============================================
-// FUNÇÃO DE LOGIN
+// FUNÇÃO DE LOGIN CORRIGIDA
 // ============================================
 
 function fazerLogin() {
@@ -245,6 +250,7 @@ function fazerLogin() {
         const lembrar = lembrarCheck ? lembrarCheck.checked : false;
         
         console.log('Tentativa de login para usuário:', username);
+        console.log('Usuários cadastrados:', Object.keys(usuarios));
         
         // Validar campos vazios
         if (!username) {
@@ -260,35 +266,47 @@ function fazerLogin() {
         // Verificar se objeto usuários existe e não está vazio
         if (!usuarios || Object.keys(usuarios).length === 0) {
             console.error('Objeto usuários vazio ou inválido');
-            mostrarErro('Erro no sistema. Contate o administrador.');
+            mostrarErro('Nenhum usuário cadastrado. Contate o administrador.');
             return;
         }
         
-        // Verificar se usuário existe
-        if (!usuarios.hasOwnProperty(username)) {
+        // Verificar se usuário existe (case insensitive)
+        const usuarioEncontrado = Object.keys(usuarios).find(
+            u => u.toLowerCase() === username.toLowerCase()
+        );
+        
+        if (!usuarioEncontrado) {
             console.log('Usuário não encontrado:', username);
+            console.log('Usuários disponíveis:', Object.keys(usuarios));
             mostrarErro('Usuário ou senha inválidos!');
             return;
         }
         
+        // Usar o nome exato como está cadastrado
+        const nomeExato = usuarioEncontrado;
+        
+        console.log('Verificando senha...');
+        console.log('Senha esperada:', usuarios[nomeExato].senha);
+        console.log('Senha fornecida:', password);
+        
         // Verificar senha
-        if (usuarios[username].senha !== password) {
-            console.log('Senha incorreta para:', username);
+        if (usuarios[nomeExato].senha !== password) {
+            console.log('Senha incorreta para:', nomeExato);
             mostrarErro('Usuário ou senha inválidos!');
             return;
         }
         
         // Login bem sucedido
-        console.log('Login bem sucedido para:', username);
+        console.log('Login bem sucedido para:', nomeExato);
         
         // Criar objeto do usuário atual
         usuarioAtual = {
-            nome: username,
-            nivel: usuarios[username].nivel || 'visualizador'
+            nome: nomeExato,
+            nivel: usuarios[nomeExato].nivel || 'visualizador'
         };
         
         // Atualizar último acesso
-        usuarios[username].ultimoAcesso = new Date().toISOString();
+        usuarios[nomeExato].ultimoAcesso = new Date().toISOString();
         localStorage.setItem('usuarios', JSON.stringify(usuarios));
         
         // Salvar na sessão
@@ -296,7 +314,7 @@ function fazerLogin() {
         
         // Salvar "lembrar" se marcado
         if (lembrar) {
-            localStorage.setItem('lembrarUsuario', username);
+            localStorage.setItem('lembrarUsuario', nomeExato);
         } else {
             localStorage.removeItem('lembrarUsuario');
         }
@@ -320,11 +338,11 @@ function fazerLogin() {
         // Atualizar nome do usuário no header
         const usuarioLogadoSpan = document.getElementById('usuarioLogado');
         if (usuarioLogadoSpan) {
-            usuarioLogadoSpan.textContent = `👤 ${username} (${traduzirNivel(usuarios[username].nivel)})`;
+            usuarioLogadoSpan.textContent = `👤 ${nomeExato} (${traduzirNivel(usuarios[nomeExato].nivel)})`;
         }
         
         // Verificar primeiro acesso
-        if (usuarios[username].primeiroAcesso) {
+        if (usuarios[nomeExato].primeiroAcesso) {
             setTimeout(() => abrirModalPrimeiroAcesso(), 500);
         }
         
@@ -431,7 +449,7 @@ function aplicarPermissoes() {
 }
 
 // ============================================
-// FUNÇÕES DE USUÁRIOS
+// FUNÇÕES DE USUÁRIOS CORRIGIDAS
 // ============================================
 
 function abrirModalUsuarios() {
@@ -479,33 +497,55 @@ function adicionarUsuario() {
     const senha = document.getElementById('novoSenha')?.value;
     const nivel = document.getElementById('novoNivel')?.value;
     
+    console.log('Tentando adicionar usuário:', username);
+    
     if (!username || !senha) {
         alert('Preencha todos os campos!');
         return;
     }
     
-    if (usuarios[username]) {
-        alert('Usuário já existe!');
+    // Validar tamanho da senha
+    if (senha.length < 4) {
+        alert('A senha deve ter pelo menos 4 caracteres!');
         return;
     }
     
+    // Verificar se usuário já existe (case insensitive)
+    const usuarioExistente = Object.keys(usuarios).find(
+        u => u.toLowerCase() === username.toLowerCase()
+    );
+    
+    if (usuarioExistente) {
+        alert(`Usuário ${usuarioExistente} já existe!`);
+        return;
+    }
+    
+    // Adicionar novo usuário
     usuarios[username] = {
         senha: senha,
-        nivel: nivel,
+        nivel: nivel || 'visualizador',
         primeiroAcesso: true,
         ultimoAcesso: null
     };
     
+    console.log('Usuário adicionado:', username);
+    console.log('Senha definida:', senha);
+    
+    // Salvar no localStorage
     localStorage.setItem('usuarios', JSON.stringify(usuarios));
     
+    // Limpar campos
     const inputUsername = document.getElementById('novoUsername');
     const inputSenha = document.getElementById('novoSenha');
     
     if (inputUsername) inputUsername.value = '';
     if (inputSenha) inputSenha.value = '';
     
+    // Atualizar tabela
     atualizarTabelaUsuarios();
-    mostrarMensagemSucesso('Usuário adicionado!');
+    
+    // Mostrar mensagem de sucesso
+    mostrarMensagemSucesso(`Usuário ${username} adicionado com sucesso!`);
 }
 
 function removerUsuario(username) {
@@ -529,6 +569,42 @@ function resetarSenha(username) {
         usuarios[username].primeiroAcesso = true;
         localStorage.setItem('usuarios', JSON.stringify(usuarios));
         mostrarMensagemSucesso('Senha redefinida!');
+    }
+}
+
+// ============================================
+// FUNÇÃO DE DEBUG - VERIFICAR USUÁRIOS
+// ============================================
+
+function verificarUsuarios() {
+    console.log('=== USUÁRIOS CADASTRADOS ===');
+    console.log(usuarios);
+    
+    // Mostrar no console para debug
+    Object.keys(usuarios).forEach(username => {
+        console.log(`Usuário: ${username}, Senha: ${usuarios[username].senha}, Nível: ${usuarios[username].nivel}`);
+    });
+    
+    alert(`Total de usuários: ${Object.keys(usuarios).length}\nVerifique o console para detalhes (F12)`);
+}
+
+// ============================================
+// FUNÇÃO DE EMERGÊNCIA - RESETAR USUÁRIOS
+// ============================================
+
+function resetarUsuarios() {
+    if (confirm('Isso vai apagar TODOS os usuários e criar apenas o admin. Continuar?')) {
+        usuarios = {
+            admin: {
+                senha: 'admin123',
+                nivel: 'admin',
+                primeiroAcesso: true,
+                ultimoAcesso: null
+            }
+        };
+        localStorage.setItem('usuarios', JSON.stringify(usuarios));
+        alert('Usuários resetados! Faça login com admin / admin123');
+        console.log('Usuários resetados:', usuarios);
     }
 }
 
