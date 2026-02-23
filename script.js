@@ -609,6 +609,120 @@ function resetarUsuarios() {
 }
 
 // ============================================
+// FUNÇÕES PARA EXPORTAR/IMPORTAR USUÁRIOS
+// ============================================
+
+function exportarUsuarios() {
+    try {
+        const dadosExport = {
+            usuarios: usuarios,
+            data: new Date().toISOString()
+        };
+        
+        const dadosString = JSON.stringify(dadosExport, null, 2);
+        const blob = new Blob([dadosString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `usuarios-backup-${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        
+        mostrarMensagemSucesso('Usuários exportados com sucesso!');
+        console.log('Usuários exportados:', Object.keys(usuarios));
+        
+    } catch (error) {
+        console.error('Erro ao exportar usuários:', error);
+        alert('Erro ao exportar usuários!');
+    }
+}
+
+function importarUsuarios() {
+    // Criar input file dinamicamente
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    
+    input.onchange = function(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        
+        reader.onload = function(e) {
+            try {
+                const conteudo = JSON.parse(e.target.result);
+                
+                // Verificar se é um backup válido
+                if (!conteudo.usuarios) {
+                    alert('Arquivo inválido! Não contém dados de usuários.');
+                    return;
+                }
+                
+                // Perguntar se quer mesclar ou substituir
+                const opcao = confirm(
+                    'Deseja MESCLAR com os usuários existentes?\n\n' +
+                    'OK = Mesclar (mantém usuários atuais e adiciona novos)\n' +
+                    'Cancelar = Substituir (apaga todos e usa apenas do arquivo)'
+                );
+                
+                if (opcao) {
+                    // MESCLAR: Adicionar novos usuários mantendo os existentes
+                    let novosUsuarios = 0;
+                    Object.keys(conteudo.usuarios).forEach(username => {
+                        if (!usuarios[username]) {
+                            usuarios[username] = conteudo.usuarios[username];
+                            novosUsuarios++;
+                        }
+                    });
+                    
+                    localStorage.setItem('usuarios', JSON.stringify(usuarios));
+                    mostrarMensagemSucesso(`${novosUsuarios} novos usuários adicionados!`);
+                    
+                } else {
+                    // SUBSTITUIR: Usar apenas os usuários do arquivo
+                    usuarios = conteudo.usuarios;
+                    localStorage.setItem('usuarios', JSON.stringify(usuarios));
+                    mostrarMensagemSucesso('Usuários substituídos com sucesso!');
+                }
+                
+                // Atualizar tabela se estiver aberta
+                if (document.getElementById('modalUsuarios').style.display === 'block') {
+                    atualizarTabelaUsuarios();
+                }
+                
+                console.log('Usuários após importação:', Object.keys(usuarios));
+                
+            } catch (error) {
+                console.error('Erro ao importar:', error);
+                alert('Erro ao importar arquivo!');
+            }
+        };
+        
+        reader.readAsText(file);
+    };
+    
+    input.click();
+}
+
+function criarUsuarioPadrao() {
+    if (!usuarios['Daniel_Santos']) {
+        usuarios['Daniel_Santos'] = {
+            senha: '123456',
+            nivel: 'visualizador',
+            primeiroAcesso: true,
+            ultimoAcesso: null
+        };
+        
+        localStorage.setItem('usuarios', JSON.stringify(usuarios));
+        console.log('Usuário Daniel_Santos criado com senha: 123456');
+        alert('Usuário Daniel_Santos criado! Senha: 123456');
+    } else {
+        alert('Usuário Daniel_Santos já existe!');
+    }
+}
+
+// ============================================
 // FUNÇÕES DE SENHA
 // ============================================
 
