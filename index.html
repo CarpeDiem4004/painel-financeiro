@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Painel Financeiro - Login</title>
     <link rel="stylesheet" href="styles.css">
+    <!-- Adicionar Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 <!-- TELA DE LOGIN -->
@@ -18,12 +20,12 @@
         <div class="login-form">
             <div class="form-group">
                 <label>Usuário:</label>
-                <input type="text" id="username" placeholder="Digite seu usuário">
+                <input type="text" id="username" placeholder="Digite seu usuário" autocomplete="username">
             </div>
             
             <div class="form-group">
                 <label>Senha:</label>
-                <input type="password" id="password" placeholder="Digite sua senha" onkeypress="if(event.key==='Enter'){fazerLogin()}">
+                <input type="password" id="password" placeholder="Digite sua senha" autocomplete="current-password" onkeypress="if(event.key==='Enter'){fazerLogin()}">
             </div>
             
             <div class="login-options">
@@ -33,6 +35,7 @@
             </div>
             
             <button onclick="fazerLogin()" class="btn-login">Entrar</button>
+            <button onclick="mostrarRecuperarSenha()" class="btn-link">Esqueceu a senha?</button>
             
             <div id="mensagemErro" class="mensagem-erro"></div>
         </div>
@@ -112,47 +115,21 @@
                 <button onclick="limparFiltros()" class="btn-limpar" id="btnLimparFiltros">🗑️ Limpar Filtros</button>
             </div>
             
-            <!-- RESUMO DO MÊS SELECIONADO -->
-            <div class="resumo-mes-selecionado" id="resumoMesSelecionado">
-                <span>Total de boletos: <strong id="totalBoletosFiltrados">0</strong></span>
-                <span>Total pendente: <strong id="totalPendenteFiltrado">R$ 0,00</strong></span>
-                <span>Total pago: <strong id="totalPagoFiltrado">R$ 0,00</strong></span>
+            <!-- RESUMO DO FILTRO -->
+            <div id="login-container">
+                <h2>Login</h2>
+                <input type="password" id="senha" placeholder="Digite a senha" />
+                <button onclick="fazerLogin()">Entrar</button>
+                <p id="login-erro" style="color:red; display:none;">Senha incorreta!</p>
             </div>
-        </div>
-
-        <div class="tabela-boletos">
-            <h2>Boletos</h2>
-            <table id="tabelaBoletos">
-                <thead>
-                    <tr>
-                        <th>📅 Vencimento</th>
-                        <th>🏢 Provedor</th>
-                        <th>📆 Período Início</th>
-                        <th>📆 Período Fim</th>
-                        <th>💰 Valor</th>
-                        <th>📋 Tipo</th>
-                        <th>📊 Status</th>
-                        <th>⏰ Adiado</th>
-                        <th>📅 Nova Data</th>
-                        <th>💵 Novo Valor</th>
-                        <th>✅ Valor Pago</th>
-                        <th>⚙️ Ações</th>
-                    </tr>
-                </thead>
-                <tbody id="corpoTabela">
-                    <!-- Os dados serão inseridos aqui pelo JavaScript -->
-                </tbody>
-            </table>
-        </div>
-
-        <div class="graficos">
+                <div id="app" style="display:none;">
             <div class="grafico" id="graficoPendencias"></div>
             <div class="grafico" id="graficoMensal"></div>
         </div>
     </div>
 </div>
 
-<!-- MODAIS EXISTENTES -->
+<!-- MODAIS -->
 <!-- Modal para Novo Boleto -->
 <div id="modalBoleto" class="modal">
     <div class="modal-content">
@@ -199,7 +176,10 @@
                 <textarea id="observacoes" rows="2" placeholder="Observações adicionais..."></textarea>
             </div>
 
-            <button type="submit">💾 Salvar Boleto</button>
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button type="button" onclick="fecharModal('modalBoleto')" class="btn-secondary">Cancelar</button>
+                <button type="submit" class="btn-primary">💾 Salvar Boleto</button>
+            </div>
         </form>
     </div>
 </div>
@@ -208,17 +188,20 @@
 <div id="modalSaldo" class="modal">
     <div class="modal-content">
         <span class="close" onclick="fecharModal('modalSaldo')">&times;</span>
-        <h2>Atualizar Saldo Disponível</h2>
+        <h2>💰 Atualizar Saldo Disponível</h2>
         <form id="formSaldo" onsubmit="atualizarSaldo(event)">
             <div class="form-group">
-                <label>Saldo Combustível:</label>
+                <label>⛽ Saldo Combustível:</label>
                 <input type="number" id="saldoCombustivelInput" step="0.01" required>
             </div>
             <div class="form-group">
-                <label>Saldo Pedágio:</label>
+                <label>🛣️ Saldo Pedágio:</label>
                 <input type="number" id="saldoPedagioInput" step="0.01" required>
             </div>
-            <button type="submit">Atualizar</button>
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button type="button" onclick="fecharModal('modalSaldo')" class="btn-secondary">Cancelar</button>
+                <button type="submit" class="btn-primary">Atualizar</button>
+            </div>
         </form>
     </div>
 </div>
@@ -302,12 +285,15 @@
                 </div>
             </div>
 
-            <button type="submit">💾 Atualizar Boleto</button>
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button type="button" onclick="fecharModal('modalDetalheBoleto')" class="btn-secondary">Cancelar</button>
+                <button type="submit" class="btn-primary">💾 Salvar Alterações</button>
+            </div>
         </form>
     </div>
 </div>
 
-<!-- MODAIS PARA USUÁRIOS -->
+<!-- MODAL PARA USUÁRIOS -->
 <div id="modalUsuarios" class="modal">
     <div class="modal-content modal-lg">
         <span class="close" onclick="fecharModal('modalUsuarios')">&times;</span>
@@ -328,7 +314,7 @@
         </div>
         
         <div class="novo-usuario">
-            <h3>Adicionar Novo Usuário</h3>
+            <h3>➕ Adicionar Novo Usuário</h3>
             <div class="form-group">
                 <label>Usuário:</label>
                 <input type="text" id="novoUsername" placeholder="Digite o nome de usuário">
@@ -348,13 +334,13 @@
             <button onclick="adicionarUsuario()" class="btn-primary">Adicionar Usuário</button>
         </div>
 
-        <!-- BOTÕES DE EXPORTAR/IMPORTAR USUÁRIOS - CORRIGIDO -->
+        <!-- BOTÕES DE EXPORTAR/IMPORTAR USUÁRIOS -->
         <div style="display: flex; gap: 10px; margin-top: 20px; justify-content: space-between; border-top: 1px solid #ddd; padding-top: 20px;">
             <div>
                 <button onclick="exportarUsuarios()" class="btn-secondary">📤 Exportar Usuários</button>
                 <button onclick="importarUsuarios()" class="btn-secondary">📥 Importar Usuários</button>
             </div>
-            <button onclick="criarUsuarioPadrao()" class="btn-warning">➕ Criar Daniel_Santos</button>
+            <button onclick="criarUsuarioDaniel()" class="btn-warning">➕ Criar Daniel_Santos</button>
         </div>
     </div>
 </div>
@@ -377,7 +363,10 @@
                 <label>Confirmar Nova Senha:</label>
                 <input type="password" id="confirmarSenha" required>
             </div>
-            <button type="submit">Alterar Senha</button>
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button type="button" onclick="fecharModal('modalAlterarSenha')" class="btn-secondary">Cancelar</button>
+                <button type="submit" class="btn-primary">Alterar Senha</button>
+            </div>
         </form>
     </div>
 </div>
@@ -397,7 +386,29 @@
                 <label>Confirmar Nova Senha:</label>
                 <input type="password" id="primeiraConfirmarSenha" required>
             </div>
-            <button type="submit">Alterar Senha</button>
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button type="button" onclick="fecharModal('modalPrimeiroAcesso')" class="btn-secondary">Cancelar</button>
+                <button type="submit" class="btn-primary">Alterar Senha</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal de Recuperar Senha -->
+<div id="modalRecuperarSenha" class="modal" style="display: none;">
+    <div class="modal-content">
+        <span class="close" onclick="fecharModal('modalRecuperarSenha')">&times;</span>
+        <h2>🔐 Recuperar Senha</h2>
+        <p>Digite seu email para receber instruções de recuperação:</p>
+        <form id="formRecuperarSenha" onsubmit="recuperarSenha(event)">
+            <div class="form-group">
+                <label>Email:</label>
+                <input type="email" id="emailRecuperacao" placeholder="Digite seu email" required>
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button type="button" onclick="fecharModal('modalRecuperarSenha')" class="btn-secondary">Cancelar</button>
+                <button type="submit" class="btn-primary">Enviar</button>
+            </div>
         </form>
     </div>
 </div>

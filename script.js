@@ -143,10 +143,14 @@ function verificarSessao() {
                 aplicarPermissoes();
                 atualizarInterface();
                 console.log('Sessão restaurada para:', userData.nome);
+            } else {
+                // Sessão inválida, limpar
+                sessionStorage.removeItem('usuarioLogado');
             }
         }
     } catch (error) {
         console.error('Erro ao verificar sessão:', error);
+        sessionStorage.removeItem('usuarioLogado');
     }
 }
 
@@ -225,131 +229,36 @@ function configurarEventos() {
 }
 
 // ============================================
-// FUNÇÃO DE LOGIN CORRIGIDA (SEM EXPOR SENHAS)
-// ============================================
-
+// NOVA FUNÇÃO DE LOGIN SIMPLIFICADA
+// Senha master: pode editar
+// Senha visualização: só visualiza
 function fazerLogin() {
-    console.log('Tentando fazer login...');
-    
-    try {
-        // Pegar elementos do DOM
-        const usernameInput = document.getElementById('username');
-        const passwordInput = document.getElementById('password');
-        const lembrarCheck = document.getElementById('lembrar');
-        
-        // Verificar se elementos existem
-        if (!usernameInput || !passwordInput) {
-            console.error('Campos de login não encontrados no DOM');
-            alert('Erro: Elementos de login não encontrados. Recarregue a página.');
-            return;
-        }
-        
-        const username = usernameInput.value.trim();
-        const password = passwordInput.value;
-        const lembrar = lembrarCheck ? lembrarCheck.checked : false;
-        
-        console.log('Tentativa de login para usuário:', username);
-        
-        // Validar campos vazios
-        if (!username) {
-            mostrarErro('Digite o nome de usuário!');
-            return;
-        }
-        
-        if (!password) {
-            mostrarErro('Digite a senha!');
-            return;
-        }
-        
-        // Verificar se objeto usuários existe e não está vazio
-        if (!usuarios || Object.keys(usuarios).length === 0) {
-            console.error('Objeto usuários vazio ou inválido');
-            mostrarErro('Nenhum usuário cadastrado. Contate o administrador.');
-            return;
-        }
-        
-        // Verificar se usuário existe (case insensitive)
-        const usuarioEncontrado = Object.keys(usuarios).find(
-            u => u.toLowerCase() === username.toLowerCase()
-        );
-        
-        if (!usuarioEncontrado) {
-            console.log('Usuário não encontrado:', username);
-            mostrarErro('Usuário ou senha inválidos!');
-            return;
-        }
-        
-        // Usar o nome exato como está cadastrado
-        const nomeExato = usuarioEncontrado;
-        
-        // Verificar senha (sem mostrar no console)
-        if (usuarios[nomeExato].senha !== password) {
-            console.log('Senha incorreta para:', nomeExato);
-            mostrarErro('Usuário ou senha inválidos!');
-            return;
-        }
-        
-        // Login bem sucedido
-        console.log('Login bem sucedido para:', nomeExato);
-        
-        // Criar objeto do usuário atual
-        usuarioAtual = {
-            nome: nomeExato,
-            nivel: usuarios[nomeExato].nivel || 'visualizador'
-        };
-        
-        // Atualizar último acesso
-        usuarios[nomeExato].ultimoAcesso = new Date().toISOString();
-        localStorage.setItem('usuarios', JSON.stringify(usuarios));
-        
-        // Salvar na sessão
-        sessionStorage.setItem('usuarioLogado', JSON.stringify(usuarioAtual));
-        
-        // Salvar "lembrar" se marcado
-        if (lembrar) {
-            localStorage.setItem('lembrarUsuario', nomeExato);
-        } else {
-            localStorage.removeItem('lembrarUsuario');
-        }
-        
-        // Esconder tela de login
-        const telaLogin = document.getElementById('telaLogin');
-        if (telaLogin) {
-            telaLogin.style.display = 'none';
-        } else {
-            console.error('Elemento telaLogin não encontrado');
-        }
-        
-        // Mostrar painel principal
-        const painelPrincipal = document.getElementById('painelPrincipal');
-        if (painelPrincipal) {
-            painelPrincipal.style.display = 'block';
-        } else {
-            console.error('Elemento painelPrincipal não encontrado');
-        }
-        
-        // Atualizar nome do usuário no header
-        const usuarioLogadoSpan = document.getElementById('usuarioLogado');
-        if (usuarioLogadoSpan) {
-            usuarioLogadoSpan.textContent = `👤 ${nomeExato} (${traduzirNivel(usuarios[nomeExato].nivel)})`;
-        }
-        
-        // Verificar primeiro acesso
-        if (usuarios[nomeExato].primeiroAcesso) {
-            setTimeout(() => abrirModalPrimeiroAcesso(), 500);
-        }
-        
-        // Aplicar permissões baseadas no nível
+    const senhaInput = document.getElementById('senha');
+    const erroDiv = document.getElementById('login-erro');
+    const appDiv = document.getElementById('app');
+    const loginDiv = document.getElementById('login-container');
+    const senha = senhaInput ? senhaInput.value : '';
+
+    // Defina as senhas aqui (troque para as desejadas)
+    const SENHA_MASTER = 'master123';
+    const SENHA_VISUALIZACAO = 'visual123';
+
+    if (senha === SENHA_MASTER) {
+        usuarioAtual = { nome: 'Master', nivel: 'admin' };
+        if (loginDiv) loginDiv.style.display = 'none';
+        if (appDiv) appDiv.style.display = 'block';
+        if (erroDiv) erroDiv.style.display = 'none';
         aplicarPermissoes();
-        
-        // Atualizar interface financeira
-        atualizarInterface();
-        
-        console.log('Login completo! Painel carregado.');
-        
-    } catch (error) {
-        console.error('Erro detalhado no login:', error);
-        mostrarErro('Erro ao fazer login: ' + error.message);
+        atualizarInterface && atualizarInterface();
+    } else if (senha === SENHA_VISUALIZACAO) {
+        usuarioAtual = { nome: 'Visualização', nivel: 'visualizador' };
+        if (loginDiv) loginDiv.style.display = 'none';
+        if (appDiv) appDiv.style.display = 'block';
+        if (erroDiv) erroDiv.style.display = 'none';
+        aplicarPermissoes();
+        atualizarInterface && atualizarInterface();
+    } else {
+        if (erroDiv) erroDiv.style.display = 'block';
     }
 }
 
@@ -398,14 +307,13 @@ function traduzirNivel(nivel) {
 function logout() {
     usuarioAtual = null;
     sessionStorage.removeItem('usuarioLogado');
-    
-    const painelPrincipal = document.getElementById('painelPrincipal');
-    const telaLogin = document.getElementById('telaLogin');
-    const passwordInput = document.getElementById('password');
-    
-    if (painelPrincipal) painelPrincipal.style.display = 'none';
-    if (telaLogin) telaLogin.style.display = 'flex';
-    if (passwordInput) passwordInput.value = '';
+    sessionStorage.removeItem('supabase.auth.token');
+    const appDiv = document.getElementById('app');
+    const loginDiv = document.getElementById('login-container');
+    const senhaInput = document.getElementById('senha');
+    if (appDiv) appDiv.style.display = 'none';
+    if (loginDiv) loginDiv.style.display = 'block';
+    if (senhaInput) senhaInput.value = '';
 }
 
 // ============================================
@@ -414,35 +322,34 @@ function logout() {
 
 function aplicarPermissoes() {
     if (!usuarioAtual) return;
-    
+    // Sempre esconde tudo antes
     const botoesEditar = document.querySelectorAll('.btn-editar');
     const botoesExcluir = document.querySelectorAll('.btn-excluir');
     const botoesAcao = document.querySelectorAll('.btn-primary, .btn-secondary, .btn-config');
     const botoesUsuarios = document.querySelectorAll('button[onclick*="Usuarios"]');
-    
+    botoesEditar.forEach(btn => btn.style.display = 'none');
+    botoesExcluir.forEach(btn => btn.style.display = 'none');
+    botoesAcao.forEach(btn => btn.style.display = 'none');
+    botoesUsuarios.forEach(btn => btn.style.display = 'none');
     switch(usuarioAtual.nivel) {
         case 'visualizador':
-            botoesEditar.forEach(btn => btn.style.display = 'none');
-            botoesExcluir.forEach(btn => btn.style.display = 'none');
-            botoesAcao.forEach(btn => btn.style.display = 'none');
+            // Só visualiza, nada aparece
             break;
-            
         case 'operador':
             botoesEditar.forEach(btn => btn.style.display = 'inline-block');
             botoesExcluir.forEach(btn => btn.style.display = 'inline-block');
-            botoesUsuarios.forEach(btn => btn.style.display = 'none');
             break;
-            
         case 'admin':
             botoesEditar.forEach(btn => btn.style.display = 'inline-block');
             botoesExcluir.forEach(btn => btn.style.display = 'inline-block');
             botoesAcao.forEach(btn => btn.style.display = 'inline-block');
+            botoesUsuarios.forEach(btn => btn.style.display = 'inline-block');
             break;
     }
 }
 
 // ============================================
-// FUNÇÕES DE USUÁRIOS CORRIGIDAS
+// FUNÇÕES DE USUÁRIOS
 // ============================================
 
 function abrirModalUsuarios() {
@@ -460,6 +367,11 @@ function atualizarTabelaUsuarios() {
     if (!tbody) return;
     
     tbody.innerHTML = '';
+    
+    if (Object.keys(usuarios).length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">Nenhum usuário cadastrado</td></tr>';
+        return;
+    }
     
     Object.keys(usuarios).forEach(username => {
         const usuario = usuarios[username];
@@ -565,7 +477,7 @@ function resetarSenha(username) {
 }
 
 // ============================================
-// FUNÇÃO DE DEBUG - VERIFICAR USUÁRIOS (SEM SENHAS)
+// FUNÇÃO DE DEBUG - VERIFICAR USUÁRIOS
 // ============================================
 
 function verificarUsuarios() {
@@ -738,6 +650,11 @@ function abrirModalPrimeiroAcesso() {
     if (modal) modal.style.display = 'block';
 }
 
+function mostrarRecuperarSenha() {
+    const modal = document.getElementById('modalRecuperarSenha');
+    if (modal) modal.style.display = 'block';
+}
+
 function alterarSenha(event) {
     event.preventDefault();
     
@@ -804,6 +721,21 @@ function alterarSenhaPrimeiroAcesso(event) {
     
     fecharModal('modalPrimeiroAcesso');
     mostrarMensagemSucesso('Senha alterada! Bem-vindo!');
+}
+
+function recuperarSenha(event) {
+    event.preventDefault();
+    
+    const email = document.getElementById('emailRecuperacao')?.value;
+    
+    if (!email) {
+        alert('Digite seu email!');
+        return;
+    }
+    
+    // Simular envio de recuperação
+    alert(`Instruções de recuperação enviadas para ${email}\n(Simulação - em produção usaria Supabase Auth)`);
+    fecharModal('modalRecuperarSenha');
 }
 
 // ============================================
@@ -1017,7 +949,7 @@ function atualizarSaldo(event) {
 }
 
 // ============================================
-// FUNÇÕES DE FILTRO MELHORADAS
+// FUNÇÕES DE FILTRO
 // ============================================
 
 function aplicarFiltrosAtuais() {
@@ -1516,9 +1448,6 @@ function atualizarBoleto(event) {
             boletoAtualizado.novaData = novaData;
             boletoAtualizado.novoValor = novoValor > 0 ? novoValor : valor;
             boletoAtualizado.valorPago = 0;
-            
-            // Remover campos de outros status
-            delete boletoAtualizado.valorPago;
             
         } else if (status === 'parcial') {
             const valorPago = parseFloat(document.getElementById('detalheValorPago').value) || 0;
